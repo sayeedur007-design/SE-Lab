@@ -1,0 +1,305 @@
+================================================================================
+                     SET-5 : COMPLETE STEP-BY-STEP LAB GUIDE
+           KMIT - Software Engineering Lab Internal II (A.Y 2026-2027)
+================================================================================
+GitHub Repository: https://github.com/savram674/BookBank.git
+
+--------------------------------------------------------------------------------
+Q1. Jenkins – Pipeline Script [25 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Create a Declarative Pipeline for Maven Web Project (BookBank) with Checkout, Build, Test, and Docker stages.
+
+STEP 1: Create a New Pipeline Project in Jenkins
+1. Open Jenkins: `http://localhost:8080`.
+2. Click **New Item** -> Name: `BookBank-Pipeline` -> Select **Pipeline** -> Click **OK**.
+
+STEP 2: Enter Pipeline Script
+In the **Pipeline** configuration section, paste:
+
+pipeline {
+    agent any
+
+    tools {
+        maven 'Maven'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                echo 'Checking out source code from GitHub...'
+                git branch: 'master', url: 'https://github.com/savram674/BookBank.git'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                echo 'Compiling and packaging WAR file...'
+                sh 'mvn clean package -DskipTests'  // Use 'bat' if Jenkins is on Windows
+            }
+        }
+
+        stage('Test') {
+            steps {
+                echo 'Running unit test cases...'
+                sh 'mvn test'  // Use 'bat' if Jenkins is on Windows
+            }
+        }
+
+        stage('Docker Build & Run') {
+            steps {
+                echo 'Building Docker container...'
+                sh '''
+                cat << 'EOF' > Dockerfile
+FROM tomcat:9.0-jdk17-slim
+RUN rm -rf /usr/local/tomcat/webapps/ROOT
+COPY target/*.war /usr/local/tomcat/webapps/ROOT.war
+EXPOSE 8080
+CMD ["catalina.sh", "run"]
+EOF
+                docker build -t bookbank-pipeline-app . || true
+                docker stop bookbank-live || true
+                docker rm bookbank-live || true
+                docker run -d --name bookbank-live -p 8082:8080 bookbank-pipeline-app || true
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: 'target/*.war', allowEmptyArchive: true
+        }
+    }
+}
+
+STEP 3: Run Build and Verify
+1. Click **Build Now**.
+2. Check the **Stage View** on project dashboard showing green boxes across all stages.
+3. Check **Console Output** for `BUILD SUCCESS`.
+
+WHAT TO SHOW TO MAM:
+1. Jenkins **Stage View** showing Checkout, Build, Test, and Docker Build & Run all green.
+2. **Console Output** showing `BUILD SUCCESS` and generated WAR.
+3. Show archived artifact `target/BookBank.war`.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+- Pipeline not creating .war files — which stage is responsible?
+  Answer: The **Build / Package stage** (`stage('Build')`). The command must include `mvn package` (or `mvn clean package`). If only `mvn compile` is run, no `.war` is generated.
+- GitHub repository link is missing in script — where exactly do you provide it?
+  Answer: Inside the **Checkout stage** within the `git` step:
+  `git branch: 'master', url: 'https://github.com/savram674/BookBank.git'`
+
+--------------------------------------------------------------------------------
+Q2. Docker Compose for a Multi-Container Docker Image [25 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Create a Docker Compose configuration for Redis, Nginx, and PostgreSQL services, with appropriate ports, persistent volumes, and environment details.
+
+STEP 1: Create a dedicated directory
+Execute in terminal:
+  mkdir -p ~/set5_task2
+  cd ~/set5_task2
+
+STEP 2: Create the Docker Compose configuration (docker-compose.yml)
+Execute in terminal:
+  cat << 'EOF' > docker-compose.yml
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: web-nginx
+    restart: always
+    ports:
+      - "80:80"
+    networks:
+      - app-net
+
+  redis:
+    image: redis:alpine
+    container_name: cache-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - app-net
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: db-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: dbuser
+      POSTGRES_PASSWORD: dbpassword
+      POSTGRES_DB: mydatabase
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-net
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  app-net:
+    driver: bridge
+EOF
+
+STEP 3: Run containers
+Execute in terminal:
+  docker compose up -d
+
+STEP 4: Verify containers and test PostgreSQL login
+Execute in terminal:
+  docker compose ps
+  # Login to PostgreSQL database container:
+  docker exec -it db-postgres psql -U dbuser -d mydatabase -c "CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(50)); INSERT INTO users (name) VALUES ('Antigravity Student'); SELECT * FROM users;"
+
+STEP 5: Access Nginx in browser
+  Open browser: http://localhost:80/
+
+WHAT TO SHOW TO MAM:
+1. Terminal: `docker compose ps` showing `web-nginx` (80), `cache-redis` (6379), and `db-postgres` (5432) all running in "Up" status.
+2. Terminal: Successful SQL execution inside PostgreSQL container displaying table and records.
+3. Browser: Open `http://localhost:80/` showing Nginx welcome screen.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+- Flask API and Nginx server on same host exposing 5000 and 80:
+  Answer: In `docker-compose.yml`, define the Flask service with `ports: ["5000:5000"]` and the Nginx service with `ports: ["80:80"]`. Place both services on the same custom bridge network. In `nginx.conf`, set `proxy_pass http://flask-service:5000;` so Nginx reverse-proxies to Flask while both expose their respective external host ports.
+
+--------------------------------------------------------------------------------
+Q3. Kubernetes using Minikube – Application Deployment and Service Exposure [25 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Start Minikube, create deployment using `savram674/eduassesspro` with 2 replicas, expose NodePort service, test deletion, and troubleshoot pending pods.
+
+STEP 1: Start Minikube & Verify Cluster Readiness
+Execute in terminal:
+  minikube start --driver=docker
+  minikube status
+  kubectl get nodes
+
+STEP 2: Create Deployment with 2 Replicas
+Execute in terminal:
+  kubectl create deployment eduassess-deploy --image=savram674/eduassesspro --replicas=2
+
+STEP 3: Expose Deployment using NodePort Service
+Execute in terminal:
+  kubectl expose deployment eduassess-deploy --type=NodePort --port=8080 --target-port=8080 --name=eduassess-svc
+
+STEP 4: Verify Deployment, Pods, and Services
+Execute in terminal:
+  kubectl get deployments
+  kubectl get pods -o wide
+  kubectl get svc eduassess-svc
+  minikube service eduassess-svc --url
+
+STEP 5: Demonstrate Deletion of a Pod (Self-Healing)
+Execute in terminal:
+  kubectl delete pod <pod-name-from-kubectl-get-pods>
+  kubectl get pods
+
+STEP 6: Demonstrate Deletion of Deployment
+Execute in terminal:
+  kubectl delete deployment eduassess-deploy
+  kubectl delete svc eduassess-svc
+
+WHAT TO SHOW TO MAM:
+1. Terminal: `minikube status` showing Host, kubelet, and apiserver all Running.
+2. Terminal: `kubectl get deployments` showing `eduassess-deploy` with `READY 2/2`.
+3. Terminal: `kubectl get pods` showing 2 pods running.
+4. Terminal: Show pod deletion where a replacement pod is instantly created by ReplicaSet.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+Q3.5: Pod stuck in "Pending" state — possible reasons & troubleshooting:
+  - Reasons: Insufficient CPU/Memory on cluster node, no matching node selector/taints, or persistent volume claim not bound.
+  - Troubleshooting: Run `kubectl describe pod <pod-name>`. Read the "Events:" block at the bottom to find the scheduler's rejection message.
+Q3.6: How to debug a failed deployment in Kubernetes:
+  1. `kubectl rollout status deployment/<name>`: Check deployment progression.
+  2. `kubectl describe deployment <name>`: View replica sets and deployment events.
+  3. `kubectl get pods`: Identify crashing pods (e.g. `CrashLoopBackOff`, `ImagePullBackOff`).
+  4. `kubectl logs <pod-name>`: Check container stderr/stdout logs.
+  5. `kubectl rollout undo deployment/<name>`: Roll back to previous stable release if needed.
+
+--------------------------------------------------------------------------------
+Q4. Create an EC2 Instance with Ubuntu and Deploy an Application [25 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Deploy `https://github.com/savram674/BookBank.git` on an AWS EC2 Ubuntu instance using Docker and verify using the EC2 Public IPv4.
+
+STEP 1: Launch EC2 Instance (AWS Console)
+1. AMI: Ubuntu 22.04 LTS (t2.micro).
+2. Key pair: `bookbank-key.pem`.
+3. Security Group Rules:
+   - SSH (Port 22, Source 0.0.0.0/0)
+   - Custom TCP (Port 8080, Source 0.0.0.0/0)
+
+STEP 2: Connect to EC2
+  ssh -i bookbank-key.pem ubuntu@<EC2-PUBLIC-IP>
+
+STEP 3: Install Docker and Git
+Execute on EC2:
+  sudo apt update -y
+  sudo apt install -y docker.io git
+  sudo systemctl start docker
+  sudo systemctl enable docker
+  sudo usermod -aG docker ubuntu
+  newgrp docker
+
+STEP 4: Clone Repository and Create Dockerfile
+Execute on EC2:
+  git clone https://github.com/savram674/BookBank.git
+  cd BookBank
+
+  cat << 'EOF' > Dockerfile
+FROM maven:3.8.4-openjdk-17-slim AS build
+WORKDIR /app
+COPY pom.xml .
+COPY src ./src
+RUN mvn clean package -DskipTests
+
+FROM tomcat:9.0-jdk17-slim
+RUN rm -rf /usr/local/tomcat/webapps/ROOT
+COPY --from=build /app/target/BookBank.war /usr/local/tomcat/webapps/ROOT.war
+EXPOSE 8080
+CMD ["catalina.sh", "run"]
+EOF
+
+STEP 5: Build Image and Run Container
+Execute on EC2:
+  docker build -t bookbank-web:v1 .
+  docker run -d --name bookbank-app -p 8080:8080 --restart=always bookbank-web:v1
+
+STEP 6: Verify and Access
+Execute on EC2:
+  docker ps
+  curl http://localhost:8080
+
+STEP 7: Access in Browser
+  Open browser: http://<EC2-PUBLIC-IP>:8080/
+
+WHAT TO SHOW TO MAM:
+1. AWS EC2 Console showing Running Ubuntu instance with its Public IPv4.
+2. Security Groups showing inbound rule for Port 8080.
+3. EC2 terminal showing `docker ps` with `bookbank-app` running.
+4. Browser showing BookBank web application on `http://<EC2-PUBLIC-IP>:8080/`.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+Q4.7: Host simple index.html on Amazon Linux 2 EC2:
+  1. Connect to EC2 via SSH: `ssh -i key.pem ec2-user@<IP>`.
+  2. Install web server: `sudo yum update -y && sudo yum install -y httpd`.
+  3. Start and enable Apache: `sudo systemctl start httpd && sudo systemctl enable httpd`.
+  4. Copy `index.html` to document root: `sudo cp index.html /var/www/html/index.html`.
+  5. Security Group: Ensure Inbound rule allows HTTP Port 80 from 0.0.0.0/0.
+Q4.8: index.html in /var/www/html/ but web page still not loading — 2 possible issues:
+  1. **Security Group Port 80 blocked**: The EC2 Security Group lacks an inbound rule allowing HTTP traffic on port 80 from 0.0.0.0/0.
+  2. **Web server service not running**: The web server daemon (Apache `httpd` or `nginx`) is stopped or inactive (`sudo systemctl status httpd`).
+================================================================================

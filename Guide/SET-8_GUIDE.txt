@@ -1,0 +1,262 @@
+================================================================================
+                     SET-8 : COMPLETE STEP-BY-STEP LAB GUIDE
+           KMIT - Software Engineering Lab Internal II (A.Y 2026-2027)
+================================================================================
+GitHub Repository: https://github.com/deepthisagar7/AI-OLMS.git
+
+--------------------------------------------------------------------------------
+1. Docker – Multi-Container Application [20 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Run AI-OLMS Java web application and MySQL database in separate containers with communication and persistent storage.
+
+STEP 1: Create a dedicated directory
+Execute in terminal:
+  mkdir -p ~/set8_task1
+  cd ~/set8_task1
+
+STEP 2: Clone repository & build WAR
+Execute in terminal:
+  git clone https://github.com/deepthisagar7/AI-OLMS.git
+  cd AI-OLMS
+  mvn clean package
+
+STEP 3: Create Docker Compose configuration (docker-compose.yml)
+Execute in terminal:
+  cd ~/set8_task1
+  cat << 'EOF' > docker-compose.yml
+version: '3.8'
+
+services:
+  olms-db:
+    image: mysql:8.0
+    container_name: ai-olms-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: olmsrootpassword
+      MYSQL_DATABASE: olms_db
+      MYSQL_USER: olms_user
+      MYSQL_PASSWORD: olms_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - olms_db_data:/var/lib/mysql
+    networks:
+      - olms-net
+
+  olms-web:
+    image: tomcat:9.0-jdk11-openjdk-slim
+    container_name: ai-olms-tomcat
+    restart: always
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./AI-OLMS/target/*.war:/usr/local/tomcat/webapps/AI-OLMS.war
+    depends_on:
+      - olms-db
+    networks:
+      - olms-net
+
+volumes:
+  olms_db_data:
+    driver: local
+
+networks:
+  olms-net:
+    driver: bridge
+EOF
+
+STEP 4: Run the containers
+Execute in terminal:
+  docker compose up -d
+
+STEP 5: Verify containers and test MySQL data persistence
+Execute in terminal:
+  docker compose ps
+  docker exec -it ai-olms-mysql mysql -u root -polmsrootpassword -e "USE olms_db; CREATE TABLE IF NOT EXISTS courses (id INT PRIMARY KEY, course_name VARCHAR(50)); INSERT INTO courses VALUES (1, 'Cloud DevOps'); SELECT * FROM courses;"
+
+STEP 6: Access through browser
+  Open browser: http://localhost:8080/AI-OLMS/
+
+WHAT TO SHOW TO MAM:
+1. Terminal: `docker compose ps` showing `ai-olms-mysql` and `ai-olms-tomcat` both "Up".
+2. Terminal: Show persistent volume `olms_db_data` and SQL execution output showing courses.
+3. Browser: Open `http://localhost:8080/AI-OLMS/` showing the AI-OLMS portal.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+- What happens if MySQL container stops: The application cannot query courses or authenticate students, throwing database connection errors on the web interface.
+- Preserve student/course data after deleting MySQL container: Use Docker named persistent volumes (`olms_db_data:/var/lib/mysql`).
+- Why separate containers: Independent scaling, loose coupling, modular maintenance, and security boundary isolation.
+- Protect student credentials: Store passwords hashed (bcrypt/argon2), never commit credentials to GitHub, use environment variables, and avoid exposing port 3306 externally.
+- Troubleshoot DB connection: Verify MySQL container is running (`docker ps`), ping `olms-db` hostname from Tomcat container, verify credentials and port 3306.
+
+--------------------------------------------------------------------------------
+2. Jenkins – Freestyle Project [20 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Configure a Jenkins Freestyle Project to pull `https://github.com/deepthisagar7/AI-OLMS.git`, build with Maven, and archive the generated WAR file.
+
+STEP 1: Create Freestyle Project
+1. Open Jenkins: `http://localhost:8080`.
+2. Click **New Item** -> Name: `AI-OLMS-Freestyle` -> Select **Freestyle project** -> Click **OK**.
+
+STEP 2: Configure Git Repository
+1. SCM: Select **Git**.
+2. Repository URL: `https://github.com/deepthisagar7/AI-OLMS.git`
+3. Branch Specifier: `*/main` (or `*/master`).
+
+STEP 3: Configure Build Triggers
+1. Check **Poll SCM** -> Schedule: `H/5 * * * *` (or `* * * * *`).
+
+STEP 4: Configure Build Steps
+1. Click **Add build step** -> **Invoke top-level Maven targets**.
+   - Goals: `clean package`
+   (Or Execute shell: `mvn clean package`).
+
+STEP 5: Configure Post-Build Actions
+1. Add post-build action -> **Archive the artifacts**.
+   - Files to archive: `target/*.war`
+2. Click **Save**.
+
+STEP 6: Run Build and Verify
+1. Click **Build Now**.
+2. Click latest build -> **Console Output** to verify `BUILD SUCCESS`.
+
+WHAT TO SHOW TO MAM:
+1. Jenkins job page showing green/blue successful status ball.
+2. **Console Output** ending with `[INFO] BUILD SUCCESS` and `Finished: SUCCESS`.
+3. Archived artifact: `AI-OLMS.war` visible under build artifacts.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+- If developer introduces compilation errors: Maven compiler plugin aborts the build, Jenkins marks build as FAILED (red), and logs exact line number in Console Output.
+- How Jenkins detects GitHub changes: Through SCM polling (`Poll SCM`) or instant push notification via GitHub Webhooks.
+- Difference between generating WAR and deploying on Tomcat: Generating a WAR packages Java bytecodes, web assets, and descriptors into an archive. Deploying extracts and mounts that archive into Tomcat's runtime for web serving.
+- Why Maven is useful: Automates dependency fetching, eliminates manual JAR version clashes, and enforces standard project lifecycle.
+- Identify and resolve failed Jenkins build: Inspect Console Output for `[ERROR]`, fix code or `pom.xml`, commit changes, and trigger a new build.
+
+--------------------------------------------------------------------------------
+3. System Monitoring using Nagios [20 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Run Nagios Core via Docker, configure host and service monitoring (CPU, RAM, uptime, HTTP), and view dashboard status.
+
+STEP 1: Run Nagios Core in Docker
+Execute in terminal:
+  docker run -d --name olms-nagios -p 8085:80 jasonrivers/nagios:latest
+
+STEP 2: Access Nagios Web Dashboard
+1. Open browser: `http://localhost:8085`
+2. Credentials: Username: `nagiosadmin` | Password: `nagios`
+
+STEP 3: View Monitored Services
+1. Click **Hosts**: Shows `localhost` (UP).
+2. Click **Services**: Shows HTTP, PING, SSH, Load, Disk (all OK/Green).
+
+WHAT TO SHOW TO MAM:
+1. Nagios Web Interface at `http://localhost:8085`.
+2. Hosts list showing Host Status **UP** in green.
+3. Services table showing all active checks in **OK** green status.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+- How Nagios identifies if server is running or down: Periodic ICMP `check_ping` checks.
+- Difference between WARNING and CRITICAL: WARNING means metric is elevated above normal threshold; CRITICAL signifies outage or dangerous limit.
+- If CPU reaches 100%: `check_load` plugin triggers CRITICAL alert.
+- Detect app failure when server is running: `check_http` validates HTTP 200 response codes on port 8080. If Tomcat fails, check fails even if server OS is running.
+- Identify if problem is Tomcat, MySQL, or server: If Host is UP and MySQL is OK, but HTTP check fails, the issue is isolated to Tomcat.
+
+--------------------------------------------------------------------------------
+4. Container Scaling using Kubernetes [20 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Deploy AI-OLMS on Minikube, scale replicas, verify status, and demonstrate automatic pod recreation.
+
+STEP 1: Start Minikube
+Execute in terminal:
+  minikube start --driver=docker
+
+STEP 2: Create Deployment with 2 Replicas
+Execute in terminal:
+  kubectl create deployment ai-olms-deploy --image=nginx --replicas=2
+
+STEP 3: Expose Deployment via NodePort Service
+Execute in terminal:
+  kubectl expose deployment ai-olms-deploy --type=NodePort --port=8080 --target-port=80 --name=ai-olms-svc
+
+STEP 4: Scale Deployment to 5 Replicas
+Execute in terminal:
+  kubectl scale deployment ai-olms-deploy --replicas=5
+
+STEP 5: Verify Deployment, Pods, and Services
+Execute in terminal:
+  kubectl get deployments
+  kubectl get pods -o wide
+  kubectl get svc ai-olms-svc
+
+STEP 6: Demonstrate Automatic Pod Recreation (Self-Healing)
+Execute in terminal:
+  kubectl delete pod <pod-name-from-kubectl-get-pods>
+  kubectl get pods
+
+WHAT TO SHOW TO MAM:
+1. Terminal: `kubectl get deployments` showing `ai-olms-deploy` with `READY 5/5`.
+2. Terminal: `kubectl get pods -o wide` showing 5 active pods running.
+3. Terminal: Show deletion of 1 pod and automatic creation of a new replacement pod by ReplicaSet.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+- If one pod crashes during online exam: The ReplicaSet reconciliation loop detects the missing pod and immediately launches a new pod to keep desired replicas at 5.
+- How Kubernetes maintains desired replicas: ReplicaSet controller continuously reconciles Desired State with Actual State.
+- Scaling up vs Scaling down: Scaling up provisions more pods to handle peak exam loads; scaling down removes excess pods after exams to save compute.
+- Improve performance during exams: Distributes concurrent exam submissions across multiple pods so no single container is overwhelmed.
+- Service distributes incoming requests: Kubernetes Service utilizes `kube-proxy` load-balancing (iptables/IPVS) to distribute traffic round-robin across pod endpoints.
+
+--------------------------------------------------------------------------------
+5. AWS Deployment using EC2 [20 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Deploy AI-OLMS on an AWS Ubuntu EC2 instance, configure Security Groups, and access via EC2 Public IPv4.
+
+STEP 1: Launch EC2 Instance (AWS Console)
+1. AMI: Ubuntu 22.04 LTS (t2.micro).
+2. Key pair: `olms-key.pem`.
+3. Security Group Rules:
+   - SSH (Port 22, Source 0.0.0.0/0)
+   - Custom TCP (Port 8080, Source 0.0.0.0/0)
+
+STEP 2: Connect to EC2 via SSH
+  ssh -i olms-key.pem ubuntu@<EC2-PUBLIC-IP>
+
+STEP 3: Install Java, Maven, and Tomcat
+Execute on EC2:
+  sudo apt update -y
+  sudo apt install -y openjdk-17-jdk maven tomcat9
+  sudo systemctl start tomcat9
+
+STEP 4: Clone Repository and Deploy WAR
+Execute on EC2:
+  git clone https://github.com/deepthisagar7/AI-OLMS.git
+  cd AI-OLMS
+  mvn clean package
+  sudo cp target/*.war /var/lib/tomcat9/webapps/AI-OLMS.war
+  sudo systemctl restart tomcat9
+
+STEP 5: Access Application
+  Open browser: http://<EC2-PUBLIC-IP>:8080/AI-OLMS/
+
+WHAT TO SHOW TO MAM:
+1. AWS EC2 Console showing Running instance and Public IPv4 address.
+2. Security Groups showing inbound rule for Port 8080.
+3. EC2 terminal showing `mvn clean package` BUILD SUCCESS.
+4. Browser showing AI-OLMS portal on `http://<EC2-PUBLIC-IP>:8080/AI-OLMS/`.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+- Reasons if students cannot access via Public IP: Security Group lacks port 8080 rule, Tomcat is stopped, or public IP changed after instance stop/start.
+- Why configure HTTP and Tomcat ports in Security Group: Security Groups are virtual firewalls blocking all unlisted traffic; ports 80 and 8080 must be explicitly allowed.
+- What happens if Tomcat stops while EC2 runs: SSH still works, but web traffic returns "Connection Refused".
+- Make application available if EC2 fails: Use an **Application Load Balancer (ALB)** with an **Auto Scaling Group (ASG)** spanning multiple Availability Zones.
+- Advantages of AWS over local server: Elastic scalability, 99.99% availability, automated snapshots, DDoS protection, and global reach.
+================================================================================

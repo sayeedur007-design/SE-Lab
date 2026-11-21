@@ -1,0 +1,293 @@
+================================================================================
+                     SET-7 : COMPLETE STEP-BY-STEP LAB GUIDE
+           KMIT - Software Engineering Lab Internal II (A.Y 2026-2027)
+================================================================================
+GitHub Repositories:
+- BookBank: https://github.com/savram674/BookBank.git
+- EduAssessPro: https://github.com/savram674/EduAssessPro.git
+
+--------------------------------------------------------------------------------
+Q1. Jenkins Pipeline View for a Web Project [25 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Automate the build and deployment of `https://github.com/savram674/BookBank.git` using Jenkins, deploy to Tomcat, and create a Pipeline View.
+
+STEP 1: Create a New Pipeline Project
+1. Open Jenkins: `http://localhost:8080`.
+2. Click **New Item** -> Name: `BookBank-WebProject` -> Select **Pipeline** -> Click **OK**.
+
+STEP 2: Enter Pipeline Script
+In the project configuration, paste:
+
+pipeline {
+    agent any
+
+    tools {
+        maven 'Maven'
+    }
+
+    stages {
+        stage('Clone Repository') {
+            steps {
+                git branch: 'master', url: 'https://github.com/savram674/BookBank.git'
+            }
+        }
+
+        stage('Build & Package WAR') {
+            steps {
+                sh 'mvn clean package -DskipTests'
+            }
+        }
+
+        stage('Deploy to Tomcat') {
+            steps {
+                echo 'Deploying to Tomcat webapps...'
+                sh 'cp target/*.war /var/lib/tomcat9/webapps/BookBank.war || true'
+            }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: 'target/*.war', allowEmptyArchive: true
+        }
+    }
+}
+
+STEP 3: Run the Pipeline Build
+1. Click **Build Now**.
+2. Verify **Stage View** shows all green blocks.
+
+STEP 4: Create Jenkins Pipeline View
+1. On the Jenkins home dashboard, click the `+` icon on the tab bar.
+2. Enter View Name: `BookBank-Pipeline-View`.
+3. Select **Pipeline View** (or **Build Pipeline View**).
+4. Click **Create**, choose initial job `BookBank-WebProject`, and click **OK**.
+
+WHAT TO SHOW TO MAM:
+1. Jenkins **Pipeline View** displaying the visual pipeline stages in green.
+2. **Console Output** ending with `[INFO] BUILD SUCCESS` and `Finished: SUCCESS`.
+3. Click on the archived `BookBank.war` under artifacts.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+Q1.5: Steps to install a plugin in Jenkins UI and compatibility considerations:
+  - Steps:
+    1. Navigate to **Manage Jenkins** -> **Plugins** (or Manage Plugins).
+    2. Click on the **Available plugins** tab.
+    3. Search for the desired plugin (e.g. "Git", "Maven Integration").
+    4. Check the checkbox and click **Install without restart** (or Download now and install after restart).
+  - Compatibility & Update Considerations:
+    1. Check Jenkins Core version compatibility (plugins often require a minimum Jenkins core version).
+    2. Check dependencies (many plugins depend on other core plugins).
+    3. Take a Jenkins backup (`JENKINS_HOME`) before major plugin updates.
+    4. Review release notes / changelogs for breaking changes or deprecations.
+
+--------------------------------------------------------------------------------
+Q2. Docker Compose for a Multi-Container Docker Image [25 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Run Smart Assessment Hub (`savram674/eduassesspro`), Tomcat, and MySQL with persistent volumes. Login, create tables, insert data, and verify persistence.
+
+STEP 1: Create a dedicated directory
+Execute in terminal:
+  mkdir -p ~/set7_task2
+  cd ~/set7_task2
+
+STEP 2: Create Docker Compose configuration (docker-compose.yml)
+Execute in terminal:
+  cat << 'EOF' > docker-compose.yml
+version: '3.8'
+
+services:
+  eduassess-app:
+    image: savram674/eduassesspro:latest
+    container_name: eduassess-app
+    restart: always
+    ports:
+      - "8082:8080"
+    depends_on:
+      - mysql-db
+    networks:
+      - edu-net
+
+  tomcat-server:
+    image: tomcat:9.0-jdk11-openjdk-slim
+    container_name: eduassess-tomcat
+    restart: always
+    ports:
+      - "8080:8080"
+    networks:
+      - edu-net
+
+  mysql-db:
+    image: mysql:8.0
+    container_name: eduassess-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: assessment_db
+      MYSQL_USER: eduuser
+      MYSQL_PASSWORD: edupassword
+    ports:
+      - "3306:3306"
+    volumes:
+      - edu_mysql_data:/var/lib/mysql
+    networks:
+      - edu-net
+
+volumes:
+  edu_mysql_data:
+    driver: local
+
+networks:
+  edu-net:
+    driver: bridge
+EOF
+
+STEP 3: Start containers
+Execute in terminal:
+  docker compose up -d
+
+STEP 4: Verify containers and test MySQL data persistence
+Execute in terminal:
+  docker compose ps
+  # Login to MySQL and create table / insert records:
+  docker exec -it eduassess-mysql mysql -u root -prootpassword -e "USE assessment_db; CREATE TABLE tests (id INT PRIMARY KEY, name VARCHAR(50), max_score INT); INSERT INTO tests VALUES (101, 'SE Lab Test', 100); SELECT * FROM tests;"
+
+STEP 5: Test persistence by stopping and restarting MySQL
+Execute in terminal:
+  docker stop eduassess-mysql
+  docker start eduassess-mysql
+  # Re-login to ensure saved tables:
+  docker exec -it eduassess-mysql mysql -u root -prootpassword -e "USE assessment_db; SELECT * FROM tests;"
+
+WHAT TO SHOW TO MAM:
+1. Terminal: `docker compose ps` showing `eduassess-app`, `eduassess-tomcat`, and `eduassess-mysql` in "Up" status.
+2. Terminal: Successful MySQL query output showing the `tests` table with inserted row.
+3. Terminal: Show that data persists even after restarting the container.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+- Should you run Node.js backend and Python scheduled script in the same container:
+  Answer: **No, they should run in separate containers**.
+  Docker best practices recommend "one process per container". Running them separately provides:
+  1. Process isolation and fault containment (if the Python script crashes, the Node.js backend remains operational).
+  2. Independent resource allocation and scaling.
+  3. Cleaner logging via standard stdout/stderr streams.
+  4. Separate container images and dependencies without dependency bloat or conflicts.
+
+--------------------------------------------------------------------------------
+Q3. Working with Webhooks to Trigger Builds in Jenkins [25 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Configure a GitHub Webhook to trigger Jenkins builds automatically on git push events.
+
+STEP 1: Enable GitHub Hook Trigger in Jenkins Project
+1. In the `BookBank-WebProject` configuration.
+2. Under **Build Triggers**, check:
+   - **GitHub hook trigger for GITScm polling**.
+3. Click **Save**.
+
+STEP 2: Configure Webhook in GitHub Repository
+1. Go to your GitHub repository -> **Settings** -> **Webhooks** -> **Add webhook**.
+2. **Payload URL**: `http://<YOUR-JENKINS-PUBLIC-IP>:8080/github-webhook/`
+3. **Content type**: `application/json`
+4. Which events would you like to trigger this webhook?
+   - Select **Just the push event**.
+5. Click **Add webhook**.
+
+STEP 3: Trigger Build via Code Change
+1. Make a small edit in GitHub (e.g. edit `README.md` or a comment in a file) and commit.
+2. Observe Jenkins: Within seconds, a new build is automatically triggered without manual intervention!
+3. Open the newly spawned build and verify **Console Output**.
+
+WHAT TO SHOW TO MAM:
+1. GitHub Webhook settings page showing green checkmark next to `http://<jenkins-url>:8080/github-webhook/`.
+2. Jenkins build history showing the build triggered by `Started by GitHub push by <username>`.
+3. Jenkins Console Output of the auto-triggered build.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+Q3.4: Role of Jenkins in a CI/CD pipeline:
+  - Jenkins serves as the central orchestration engine that automates every phase of the software delivery lifecycle: fetching code from VCS, compiling, running unit tests, performing code quality checks, packaging artifacts (JAR/WAR/Docker images), and deploying to staging/production environments.
+Q3.5: Different types of build triggers available in Jenkins:
+  1. **GitHub hook trigger for GITScm polling (Webhooks)**: Instant trigger via HTTP POST when code is pushed to GitHub.
+  2. **Poll SCM**: Jenkins periodically polls the repository for changes using cron syntax (e.g. `H/5 * * * *`).
+  3. **Build periodically**: Scheduled cron builds regardless of code changes (e.g. nightly builds).
+  4. **Trigger builds remotely (e.g. via scripts / API token)**: Triggered using a web URL and authentication token.
+  5. **Build after other projects are built**: Upstream/downstream job chaining.
+
+--------------------------------------------------------------------------------
+Q4. Create an EC2 Instance with Ubuntu and Deploy an Application [25 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Deploy `https://github.com/savram674/EduAssessPro.git` on AWS EC2 Ubuntu instance using Docker and verify via EC2 Public IPv4.
+
+STEP 1: Launch EC2 Instance (AWS Console)
+1. AMI: Ubuntu 22.04 LTS (t2.micro).
+2. Key pair: `eduassess-key.pem`.
+3. Security Group Rules:
+   - SSH (Port 22, Source: 0.0.0.0/0)
+   - Custom TCP (Port 8080, Source: 0.0.0.0/0)
+
+STEP 2: Connect to EC2 via SSH
+  ssh -i eduassess-key.pem ubuntu@<EC2-PUBLIC-IP>
+
+STEP 3: Install Docker and Git on EC2
+Execute on EC2:
+  sudo apt update -y
+  sudo apt install -y docker.io git
+  sudo systemctl start docker
+  sudo systemctl enable docker
+  sudo usermod -aG docker ubuntu
+  newgrp docker
+
+STEP 4: Clone Repository and Build Application Dockerfile
+Execute on EC2:
+  git clone https://github.com/savram674/EduAssessPro.git
+  cd EduAssessPro
+
+  cat << 'EOF' > Dockerfile
+FROM maven:3.8.4-openjdk-17-slim AS build
+WORKDIR /app
+COPY pom.xml .
+COPY src ./src
+RUN mvn clean package -DskipTests
+
+FROM tomcat:9.0-jdk17-slim
+WORKDIR /usr/local/tomcat/webapps/
+RUN rm -rf /usr/local/tomcat/webapps/ROOT
+COPY --from=build /app/target/*.war ./ROOT.war
+EXPOSE 8080
+CMD ["catalina.sh", "run"]
+EOF
+
+STEP 5: Build Image and Run Container
+Execute on EC2:
+  docker build -t eduassess-web:v1 .
+  docker run -d --name eduassess-container -p 8080:8080 --restart=always eduassess-web:v1
+
+STEP 6: Verify and Access
+Execute on EC2:
+  docker ps
+  curl http://localhost:8080
+
+STEP 7: Access in Browser
+  Open browser: http://<EC2-PUBLIC-IP>:8080/
+
+WHAT TO SHOW TO MAM:
+1. AWS Console: Running Ubuntu EC2 instance and its Public IPv4 address.
+2. Security Groups: Inbound rule permitting Port 8080.
+3. EC2 terminal: `docker ps` showing `eduassess-container` running.
+4. Browser: Open `http://<EC2-PUBLIC-IP>:8080/` showing the EduAssess application.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+Q4.7: Where will you place the .war file in Tomcat and why:
+  - Location: Inside Tomcat's `webapps/` directory (`/var/lib/tomcat9/webapps/` or `/usr/local/tomcat/webapps/`).
+  - Reason: Tomcat's background deployment scanner monitors `webapps/`. Placing a `.war` file there causes Tomcat to automatically unpack the archive into a folder matching the WAR name and mount the application at that context path (or as the default root application if named `ROOT.war`).
+Q4.8: Maven needs external dependencies but EC2 has no internet — AWS service or change:
+  - Solution 1: If EC2 is in a private subnet, attach an **AWS NAT Gateway** residing in a public subnet with an updated Route Table (`0.0.0.0/0 -> nat-gateway-id`) to allow secure outbound internet access without exposing the instance to inbound traffic.
+  - Solution 2: Use **AWS CodeArtifact** or an internal private artifact repository (e.g. Nexus/Artifactory) configured within the VPC with an **AWS VPC Endpoint**.
+================================================================================

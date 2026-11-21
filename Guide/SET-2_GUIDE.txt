@@ -1,0 +1,338 @@
+================================================================================
+                     SET-2 : COMPLETE STEP-BY-STEP LAB GUIDE
+           KMIT - Software Engineering Lab Internal II (A.Y 2026-2027)
+================================================================================
+
+--------------------------------------------------------------------------------
+Q1. Docker Compose – Online Boutique Store [25 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Run MySQL backend (port 3306) and Tomcat web server (port 8080) in separate containers with persistent volume using Docker Compose.
+
+STEP 1: Create a dedicated directory
+Execute in terminal:
+  mkdir -p ~/set2_task1
+  cd ~/set2_task1
+
+STEP 2: Create the Docker Compose file (docker-compose.yml)
+Execute in terminal:
+  cat << 'EOF' > docker-compose.yml
+version: '3.8'
+
+services:
+  mysqldb:
+    image: mysql:8.0
+    container_name: boutique-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: boutiquestore
+      MYSQL_USER: boutique_user
+      MYSQL_PASSWORD: boutique_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - boutique_db_data:/var/lib/mysql
+    networks:
+      - boutique-network
+
+  tomcat:
+    image: tomcat:9.0-jdk11-openjdk-slim
+    container_name: boutique-tomcat
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=mysqldb
+      - DB_PORT=3306
+      - DB_NAME=boutiquestore
+    depends_on:
+      - mysqldb
+    networks:
+      - boutique-network
+
+volumes:
+  boutique_db_data:
+    driver: local
+
+networks:
+  boutique-network:
+    driver: bridge
+EOF
+
+STEP 3: Start the containers
+Execute in terminal:
+  docker compose up -d
+
+STEP 4: Verify running containers and volume
+Execute in terminal:
+  docker compose ps
+  docker volume ls | grep boutique_db_data
+  docker compose logs mysqldb
+  docker compose logs tomcat
+
+STEP 5: Test MySQL Connectivity and Persistent Data
+Execute in terminal:
+  docker exec -it boutique-mysql mysql -u root -prootpassword -e "USE boutiquestore; CREATE TABLE IF NOT EXISTS products (id INT PRIMARY KEY, name VARCHAR(50), price INT); INSERT INTO products VALUES (1, 'Silk Saree', 1500); SELECT * FROM products;"
+
+STEP 6: Access Tomcat through Web Browser
+  Open browser: http://localhost:8080/
+
+WHAT TO SHOW TO MAM:
+1. Terminal: Run `docker compose ps` showing `boutique-mysql` (port 3306) and `boutique-tomcat` (port 8080) both running with status "Up".
+2. Terminal: Show persistent volume `boutique_db_data` created using `docker volume inspect set2_task1_boutique_db_data`.
+3. Terminal: Show MySQL query output containing the products table and records.
+4. Browser: Open `http://localhost:8080/` showing the Apache Tomcat landing page.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+Q1.1: Configure port mappings and custom Docker network:
+  - In `docker-compose.yml`, define `ports: ["8080:8080"]` for tomcat and `ports: ["3306:3306"]` for mysql.
+  - Define custom bridge network `boutique-network` under `networks:`. Both containers share this network, allowing Tomcat to reach MySQL using the service name `mysqldb` via Docker's embedded DNS.
+Q1.2: Why customer registration/product data is lost when MySQL is recreated, and how volumes preserve it:
+  - Containers are ephemeral; by default, any data written inside container filesystem `/var/lib/mysql` is destroyed when the container is deleted.
+  - Solution: Configure a named volume (`boutique_db_data:/var/lib/mysql`) in `docker-compose.yml`. Even if container is stopped and removed (`docker compose down`), the volume persists on the host disk and mounts back on `docker compose up`.
+Q1.3: Connection Refused on http://localhost:8080 troubleshooting:
+  - Check if Tomcat container is running: `docker compose ps`
+  - Check container logs for boot crashes: `docker compose logs tomcat`
+  - Verify host port mapping: Ensure no other service occupies port 8080 on the host (`netstat -tulnp | grep 8080`).
+  - Safely stop and remove containers: `docker compose down` (or `docker compose down -v` if wiping volumes).
+
+--------------------------------------------------------------------------------
+Q2. Jenkins Pipeline for a Maven Web Project with Webhooks [25 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Build `https://github.com/haleema91/LAB-INTERNAL-II-OBS.git` using Jenkins Pipeline, deploy to Tomcat, and configure GitHub Webhook auto-trigger.
+
+STEP 1: Open Jenkins and Create New Pipeline Project
+1. Open `http://localhost:8080`.
+2. Click **New Item** -> Name: `OnlineBoutiqueStore` -> Select **Pipeline** -> Click **OK**.
+
+STEP 2: Configure Webhook Build Trigger
+1. In the project configuration, under **Build Triggers**:
+   - Check the box: **GitHub hook trigger for GITScm polling**.
+
+STEP 3: Configure GitHub Webhook (in GitHub Repo Settings)
+1. Go to your GitHub repository -> **Settings** -> **Webhooks** -> **Add webhook**.
+2. Payload URL: `http://<YOUR-JENKINS-IP>:8080/github-webhook/`
+3. Content type: `application/json`
+4. Which events would you like to trigger this webhook? Select: **Just the push event**.
+5. Click **Add webhook**.
+
+STEP 4: Pipeline Script
+In Jenkins Pipeline configuration, paste the following script:
+
+pipeline {
+    agent any
+
+    tools {
+        maven 'Maven'
+    }
+
+    stages {
+        stage('Clone Repository') {
+            steps {
+                git branch: 'main', url: 'https://github.com/haleema91/LAB-INTERNAL-II-OBS.git'
+            }
+        }
+
+        stage('Maven Clean & Compile') {
+            steps {
+                sh 'mvn clean compile'
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                sh 'mvn test'
+            }
+        }
+
+        stage('Package WAR') {
+            steps {
+                sh 'mvn package'
+            }
+        }
+
+        stage('Deploy to Tomcat') {
+            steps {
+                echo 'Deploying WAR to Tomcat webapps...'
+                // Copies built war to Tomcat webapps directory:
+                sh 'cp target/*.war /var/lib/tomcat9/webapps/OnlineBoutiqueStore.war || true'
+            }
+        }
+    }
+    post {
+        always {
+            archiveArtifacts artifacts: 'target/*.war', allowEmptyArchive: true
+        }
+    }
+}
+
+STEP 5: Create Jenkins Pipeline View
+1. Click `+` tab on Jenkins main dashboard -> Select **Pipeline View**.
+2. Name it `Boutique-Pipeline-View` -> Select `OnlineBoutiqueStore` as initial job -> Click **OK**.
+
+WHAT TO SHOW TO MAM:
+1. GitHub Webhook settings page showing green checkmark for `http://<jenkins-url>:8080/github-webhook/`.
+2. Jenkins **Pipeline View / Stage View** showing all stages (Clone -> Clean & Compile -> Test -> Package -> Deploy) in green.
+3. Jenkins **Console Output** showing `[INFO] BUILD SUCCESS` and `Finished: SUCCESS`.
+4. Tomcat webapps showing deployed `OnlineBoutiqueStore.war`.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+Q2.1: Maven command to remove previously generated build files before building:
+  - Command: `mvn clean` (deletes the entire `target/` directory).
+Q2.2: Where to provide repository URL in Jenkins pipeline for a private repo:
+  - In the `git` or `checkout scm` step inside the `stage('Clone')`:
+    `git credentialsId: 'github-cred-id', url: 'https://github.com/username/repo.git'`
+    Credentials must be pre-configured in Jenkins -> Manage Jenkins -> Credentials.
+Q2.3: Application building successfully, but WAR file not generated:
+  - Command: Run `mvn package` (or `mvn clean package`). Ensure `<packaging>war</packaging>` is defined in `pom.xml`.
+
+--------------------------------------------------------------------------------
+Q3. Kubernetes – Container Deployment and Auto Scaling and Monitoring [25 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Deploy Nginx on Minikube with 2 replicas, expose NodePort on port 7070, scale to 5 replicas, verify resources, and configure Nagios Core Docker container.
+
+STEP 1: Start Minikube
+Execute in terminal:
+  minikube start --driver=docker
+
+STEP 2: Create Deployment with 2 replicas
+Execute in terminal:
+  kubectl create deployment boutique-nginx --image=nginx --replicas=2
+
+STEP 3: Expose Deployment via NodePort Service at port 7070
+Execute in terminal:
+  kubectl expose deployment boutique-nginx --type=NodePort --port=7070 --target-port=80 --name=boutique-service
+
+STEP 4: Scale Deployment from 2 to 5 Replicas
+Execute in terminal:
+  kubectl scale deployment boutique-nginx --replicas=5
+
+STEP 5: Verify Deployment, Pods, and Services
+Execute in terminal:
+  kubectl get deployments
+  kubectl get pods -o wide
+  kubectl get svc boutique-service
+  minikube service boutique-service --url
+
+STEP 6: Test Access in Browser
+  kubectl port-forward svc/boutique-service 7070:7070
+  # Browser: http://localhost:7070
+
+STEP 7: Install and Configure Nagios Core using Docker
+Execute in terminal:
+  docker run -d --name boutique-nagios -p 8085:80 jasonrivers/nagios:latest
+  docker ps | grep boutique-nagios
+
+STEP 8: Access Nagios Web Interface
+  Open browser: http://localhost:8085 (Username: `nagiosadmin`, Password: `nagios`)
+
+WHAT TO SHOW TO MAM:
+1. Terminal: `kubectl get deployments` showing `boutique-nginx` with `READY 5/5`.
+2. Terminal: `kubectl get pods -o wide` showing 5 running pods.
+3. Terminal: `kubectl get svc boutique-service` showing NodePort service on port 7070.
+4. Browser: Open `http://localhost:7070` displaying the Nginx boutique landing page.
+5. Browser: Open Nagios dashboard (`http://localhost:8085`) showing hosts and services monitoring.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+Q3.1: Exposing application externally using NodePort Service and accessing through Minikube:
+  - Command: `kubectl expose deployment boutique-nginx --type=NodePort --port=7070 --target-port=80`.
+  - In Minikube, run `minikube service boutique-service --url` to get the accessible host-port URL, or run `kubectl port-forward svc/boutique-service 7070:7070` to map directly to localhost.
+Q3.2: Verify Nagios service status and configuration:
+  - Commands: `docker ps -f name=boutique-nagios`, `docker logs boutique-nagios`, and `docker exec -it boutique-nagios /usr/local/nagios/bin/nagios -v /usr/local/nagios/etc/nagios.cfg`.
+Q3.3: Scaling to 5 replicas causes some Pods to remain in Pending state:
+  - Cause: Insufficient CPU or Memory on the single Minikube node.
+  - Troubleshooting: Run `kubectl describe pod <pending-pod>` to inspect the "Events" section.
+
+--------------------------------------------------------------------------------
+Q4. AWS EC2 Deployment – Online Boutique Store [25 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Launch Ubuntu EC2, connect via SSH, install Docker, deploy website's `index.html` using Nginx Docker container, and verify via EC2 Public IPv4.
+
+STEP 1: Launch Ubuntu EC2 Instance (AWS Console)
+1. AMI: Ubuntu 22.04 LTS (t2.micro).
+2. Key pair: Create or choose `boutique-key.pem`.
+3. Security Group Rules:
+   - SSH (Port 22, Source 0.0.0.0/0)
+   - HTTP (Port 80, Source 0.0.0.0/0)
+
+STEP 2: Connect to EC2 via SSH
+Execute on your local machine:
+  chmod 400 boutique-key.pem
+  ssh -i boutique-key.pem ubuntu@<EC2-PUBLIC-IP>
+
+STEP 3: Install Docker on EC2
+Execute on EC2:
+  sudo apt update -y
+  sudo apt install -y docker.io
+  sudo systemctl start docker
+  sudo systemctl enable docker
+  sudo usermod -aG docker ubuntu
+  newgrp docker
+
+STEP 4: Create Website Directory and index.html
+Execute on EC2:
+  mkdir -p ~/boutique-web
+  cd ~/boutique-web
+
+  cat << 'EOF' > index.html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Online Boutique Store</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #fdf2f8; text-align: center; padding: 50px; }
+        h1 { color: #db2777; }
+        .card { background: white; padding: 20px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Welcome to Online Boutique Store</h1>
+        <p>Premium Fashion, Ethnic Wear & Accessories</p>
+        <p>Deployed successfully on AWS EC2 using Docker & NGINX!</p>
+    </div>
+</body>
+</html>
+EOF
+
+STEP 5: Run Nginx Docker Container mounting index.html
+Execute on EC2:
+  docker run -d --name boutique-web-server -p 80:80 -v $(pwd)/index.html:/usr/share/nginx/html/index.html:ro nginx:alpine
+
+STEP 6: Verify Container Execution
+Execute on EC2:
+  docker ps
+  curl http://localhost
+
+STEP 7: Access in Browser
+  Open browser: http://<EC2-PUBLIC-IP>/
+
+WHAT TO SHOW TO MAM:
+1. AWS Console: Running Ubuntu EC2 instance with its Public IPv4 address.
+2. AWS Security Group: Inbound rule allowing HTTP Port 80 from 0.0.0.0/0.
+3. EC2 Terminal: Run `docker ps` showing `boutique-web-server` running on `0.0.0.0:80->80/tcp`.
+4. Web Browser: Open `http://<EC2-PUBLIC-IP>/` displaying the Online Boutique Store web page.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+Q4.1: Connect to EC2 using SSH and steps if SSH fails:
+  - Command: `ssh -i key.pem ubuntu@<EC2-Public-IP>`.
+  - If SSH fails:
+    1. Check permissions on key: `chmod 400 key.pem` (Windows: remove inherited permissions).
+    2. Check Security Group: Port 22 must be allowed from your IP or 0.0.0.0/0.
+    3. Verify correct username: `ubuntu` for Ubuntu OS (not `ec2-user` or `root`).
+    4. Verify EC2 public IP has not changed after instance stop/start.
+Q4.2: How to launch EC2, select instance type, key pair, and security group:
+  - In AWS Console -> EC2 -> Launch Instance -> Select Ubuntu Server 22.04 LTS AMI -> Select `t2.micro` (free tier) -> Select/create `.pem` key pair -> In Network Settings, check "Allow SSH traffic from Anywhere" and "Allow HTTP traffic from the internet".
+Q4.3: Container running on EC2, but customers unable to access website:
+  - Root cause: EC2 Security Group inbound rule for port 80 is missing or blocked by host firewall.
+  - Fix: AWS Console -> Security Groups -> Edit Inbound Rules -> Add Rule: Type `HTTP`, Port `80`, Source `0.0.0.0/0` -> Save Rules.
+  - Also verify Ubuntu firewall: `sudo ufw allow 80` or `sudo ufw disable`.
+================================================================================

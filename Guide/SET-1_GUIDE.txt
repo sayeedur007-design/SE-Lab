@@ -1,0 +1,316 @@
+================================================================================
+                     SET-1 : COMPLETE STEP-BY-STEP LAB GUIDE
+           KMIT - Software Engineering Lab Internal II (A.Y 2026-2027)
+================================================================================
+
+--------------------------------------------------------------------------------
+Q1. Docker Compose – Online Event Management System Using Tomcat and NGINX [25 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Deploy Tomcat (port 8080) and NGINX (port 80) reverse proxy using Docker Compose.
+
+STEP 1: Create a dedicated working directory
+Execute in terminal:
+  mkdir -p ~/set1_task1
+  cd ~/set1_task1
+
+STEP 2: Create the NGINX configuration file (nginx.conf)
+Execute in terminal:
+  cat << 'EOF' > nginx.conf
+events { worker_connections 1024; }
+
+http {
+    upstream tomcat_server {
+        server tomcat:8080;
+    }
+
+    server {
+        listen 80;
+        server_name localhost;
+
+        location / {
+            proxy_pass http://tomcat_server;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }
+}
+EOF
+
+STEP 3: Create the Docker Compose file (docker-compose.yml)
+Execute in terminal:
+  cat << 'EOF' > docker-compose.yml
+version: '3.8'
+
+services:
+  tomcat:
+    image: tomcat:9.0-jdk11-openjdk-slim
+    container_name: oems-tomcat
+    restart: always
+    ports:
+      - "8080:8080"
+    networks:
+      - oems-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: oems-nginx
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - tomcat
+    networks:
+      - oems-network
+
+networks:
+  oems-network:
+    driver: bridge
+EOF
+
+STEP 4: Run the Docker Compose application
+Execute in terminal:
+  docker compose up -d
+
+STEP 5: Verification commands
+  docker compose ps
+  docker network ls
+  docker network inspect set1_task1_oems-network
+  docker compose logs nginx
+  docker compose logs tomcat
+
+STEP 6: Test in browser or curl
+  curl -I http://localhost
+  # Or open browser: http://localhost:80
+
+WHAT TO SHOW TO MAM:
+1. Terminal: Run `docker compose ps`. Show both `oems-tomcat` (port 8080) and `oems-nginx` (port 80) with status "Up".
+2. Terminal: Run `docker network inspect <network_name>` to show both containers attached to the custom bridge network `oems-network`.
+3. Browser: Open `http://localhost:80` (or `http://<machine-ip>:80`). Show that visiting NGINX on port 80 forwards to Tomcat's default landing page or response.
+4. Terminal: Run `docker compose logs nginx` to show HTTP 200/302 access logs from NGINX proxying to Tomcat.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+Q1.1: NGINX container unable to communicate with Tomcat container:
+  - Cause: Containers not on the same Docker custom network, wrong service name in `nginx.conf` (must use service name `tomcat`, not localhost or container IP), or Tomcat container crashed.
+  - Troubleshooting:
+    1. Check network: `docker inspect <container_id>` to confirm both share `oems-network`.
+    2. Check service name: ping tomcat from nginx using `docker exec -it oems-nginx ping tomcat`.
+    3. Check port: Ensure Tomcat is listening on port 8080 inside container.
+Q1.2: 502 Bad Gateway error when accessing via NGINX:
+  - Cause: Tomcat container is down, still starting up, or listening on a different port than upstream configured in nginx.
+  - Troubleshooting:
+    1. Check Tomcat status: `docker compose ps` and `docker compose logs tomcat`.
+    2. Check upstream address: Verify `proxy_pass http://tomcat:8080;` in `nginx.conf`.
+    3. Check Nginx error logs: `docker compose logs nginx` to see "Connection refused".
+Q1.3: Port 80 already in use on host machine:
+  - Solution: In `docker-compose.yml`, change NGINX host port mapping under `ports:` from `"80:80"` to `"8081:80"` (or `"8090:80"`). The internal container port stays 80, only the host port changes.
+
+--------------------------------------------------------------------------------
+Q2. AWS EC2 Deployment – Online Event Management Maven Web Application [25 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Deploy Maven Web Application (https://github.com/haleema91/LAB-INTERNAL-II-OEMS.git) on AWS Ubuntu EC2 with Tomcat on port 9090.
+
+STEP 1: Launch EC2 Instance (AWS Console)
+1. OS: Ubuntu 22.04 LTS / 24.04 LTS (t2.micro / free tier).
+2. Key Pair: Select or create your .pem key.
+3. Security Group Inbound Rules:
+   - Type: SSH | Port: 22 | Source: 0.0.0.0/0
+   - Type: Custom TCP | Port: 9090 | Source: 0.0.0.0/0
+   - Type: Custom TCP | Port: 8080 | Source: 0.0.0.0/0
+   - Type: HTTP | Port: 80 | Source: 0.0.0.0/0
+
+STEP 2: Connect to EC2 via SSH
+  ssh -i your-key.pem ubuntu@<EC2-PUBLIC-IP>
+
+STEP 3: Install Java, Maven, and Tomcat 9
+Execute on EC2:
+  sudo apt update -y
+  sudo apt install -y openjdk-17-jdk maven tomcat9
+
+STEP 4: Configure Tomcat to listen on Port 9090 (as per question)
+Execute on EC2:
+  sudo sed -i 's/port="8080"/port="9090"/g' /etc/tomcat9/server.xml
+  sudo systemctl restart tomcat9
+  sudo systemctl status tomcat9
+
+STEP 5: Clone the GitHub Repository and Build WAR
+Execute on EC2:
+  cd ~
+  git clone https://github.com/haleema91/LAB-INTERNAL-II-OEMS.git
+  cd LAB-INTERNAL-II-OEMS
+  mvn clean package
+
+STEP 6: Deploy WAR file to Tomcat webapps
+Execute on EC2:
+  # The built war file is target/OEMS-1.war
+  # Copy and rename to OnlineEventManagement.war for context path /OnlineEventManagement/
+  sudo cp target/OEMS-1.war /var/lib/tomcat9/webapps/OnlineEventManagement.war
+  sudo systemctl restart tomcat9
+
+STEP 7: Access the application in browser
+  http://<EC2-PUBLIC-IP>:9090/OnlineEventManagement/
+
+WHAT TO SHOW TO MAM:
+1. AWS EC2 Console: Show the Running EC2 instance and its Public IPv4 address.
+2. Security Groups Tab: Show the Inbound Rule permitting Custom TCP Port 9090 from 0.0.0.0/0.
+3. EC2 Terminal: Run `mvn clean package` showing `[INFO] BUILD SUCCESS` and the generated WAR file in `target/`.
+4. EC2 Terminal: Run `sudo netstat -tulnp | grep 9090` or `sudo ss -tulnp | grep 9090` showing Tomcat listening on 9090.
+5. Web Browser: Open `http://<EC2-PUBLIC-IP>:9090/OnlineEventManagement/` showing the Online Event Management homepage.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+Q2.1: Tomcat running successfully, but cannot access via EC2 Public IPv4 on port 9090:
+  - Security Group Changes: Go to AWS Console -> EC2 -> Instances -> Security -> Security Groups -> Edit Inbound Rules -> Add Rule: Custom TCP, Port Range: 9090, Source: Anywhere-IPv4 (0.0.0.0/0) -> Save Rules.
+  - Verification: Run `sudo ss -tulnp | grep 9090` or `curl http://localhost:9090` on EC2 to verify Tomcat is active locally. Check EC2 OS firewall `sudo ufw status`.
+Q2.2: HTTP 404 error accessing `http://<EC2-Public-IP>:9090/OnlineEventManagement/`:
+  - Reasons:
+    1. WAR file name does not match `/OnlineEventManagement/` (e.g. deployed as `OEMS-1.war`, which creates path `/OEMS-1/` instead).
+    2. WAR file failed to unpack in `/var/lib/tomcat9/webapps/`.
+    3. `web.xml` welcome-file-list is missing `index.jsp`.
+  - Troubleshooting: Check Tomcat logs: `sudo tail -n 100 /var/log/tomcat9/catalina.out`. Verify folder exists in `/var/lib/tomcat9/webapps/OnlineEventManagement`.
+Q2.3: `mvn clean package` does not generate WAR in target directory:
+  - Reasons:
+    1. `<packaging>war</packaging>` is missing or set to `jar` in `pom.xml`.
+    2. Missing `src/main/webapp` or `WEB-INF/web.xml`.
+    3. Maven build failed due to compilation errors or dependency download failures.
+  - Troubleshooting: Check Maven console error messages. Run `mvn clean package -X` for debug output. Check `pom.xml` build packaging tag.
+
+--------------------------------------------------------------------------------
+Q3. Jenkins Freestyle Project – Maven Web Project [25 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Automate building `https://github.com/haleema91/LAB-INTERNAL-II-OEMS.git` using Jenkins Freestyle project with Poll SCM.
+
+STEP 1: Start Jenkins and Open Web Interface
+  Open browser: `http://localhost:8080` (or your Jenkins server IP).
+
+STEP 2: Create New Freestyle Project
+1. Click **New Item** from left sidebar.
+2. Enter Item Name: `OnlineEventManagement`
+3. Select **Freestyle project** and click **OK**.
+
+STEP 3: Configure Source Code Management (SCM)
+1. Select radio button: **Git**
+2. Repository URL: `https://github.com/haleema91/LAB-INTERNAL-II-OEMS.git`
+3. Credentials: None (it is a public repository).
+4. Branch Specifier (blank for 'any'): `*/main` (Note: default branch is `main`).
+
+STEP 4: Configure Build Triggers
+1. Check the box: **Poll SCM**
+2. In the Schedule textarea, enter:
+   `* * * * *`   (or `H/5 * * * *` to poll every 5 minutes).
+
+STEP 5: Configure Build Steps
+1. Click **Add build step** dropdown.
+2. Select **Invoke top-level Maven targets** (or "Execute shell" if Maven plugin isn't linked).
+   - Maven Version: Select your configured Maven (e.g. Maven-3.8 / default)
+   - Goals: `clean package`
+   (If using Execute shell, command is: `mvn clean package`)
+3. Click **Save**.
+
+STEP 6: Execute and Verify Build
+1. Click **Build Now** on the left menu.
+2. In Build History, click on the latest build (e.g. `#1`).
+3. Click **Console Output** to observe the logs.
+4. Verify that the build ends with `BUILD SUCCESS` and `Finished: SUCCESS`.
+
+STEP 7: Setup Pipeline / Dashboard View (if requested by examiner)
+1. Click the `+` icon on the Jenkins main dashboard tab.
+2. Select **Dashboard View** or **Pipeline View**, give it a name, select `OnlineEventManagement` and save.
+
+WHAT TO SHOW TO MAM:
+1. Jenkins Project page for `OnlineEventManagement` showing blue/green success status balls.
+2. **Console Output**: Scroll to the bottom and show:
+   `[INFO] ------------------------------------------------------------------------`
+   `[INFO] BUILD SUCCESS`
+   `[INFO] ------------------------------------------------------------------------`
+   `Finished: SUCCESS`
+3. Click on **Workspace** -> `target/` and show `OEMS-1.war` successfully created.
+4. Jenkins Build Trigger section showing **Poll SCM** configured with schedule.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+Q3.1: Jenkins Freestyle project unable to fetch source code from GitHub:
+  - Possible Causes: Incorrect repository URL, Git not installed on Jenkins host, incorrect branch (`master` instead of `main`), network/proxy blocking GitHub.
+  - Troubleshooting: Verify Git binary path under Jenkins -> Manage Jenkins -> Tools -> Git. Check repository URL by cloning manually from CLI `git clone <url>`. Ensure branch is specified as `*/main`.
+Q3.2: Jenkins build successful in fetching source code, but WAR file is not generated:
+  - Troubleshooting: Verify build goal is `clean package` (not just `clean compile`). Verify `pom.xml` contains `<packaging>war</packaging>`. Check Console Output for the location of generated artifacts under `workspace/target/`.
+Q3.3: Developer modifies event registration Servlet but introduces compilation error; Jenkins reports FAILED:
+  - Troubleshooting: Open Jenkins -> Click failed build -> **Console Output**. Search for `[ERROR] COMPILATION ERROR`. Identify the file name and line number of syntax error. Fix the Java file, commit & push, and run **Build Now** again.
+
+--------------------------------------------------------------------------------
+Q4. Kubernetes – Application Deployment, Scaling and Monitoring [25 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Deploy Nginx on Minikube with 2 replicas, expose NodePort on 6060, scale to 3 replicas, verify pods/services, and run Nagios Core on Docker.
+
+STEP 1: Start Minikube
+Execute in terminal:
+  minikube start --driver=docker
+
+STEP 2: Create Kubernetes Deployment with 2 replicas
+Execute in terminal:
+  kubectl create deployment nginx-deploy --image=nginx --replicas=2
+
+STEP 3: Expose Deployment using NodePort Service with port 6060
+Execute in terminal:
+  kubectl expose deployment nginx-deploy --type=NodePort --port=6060 --target-port=80 --name=nginx-service
+
+STEP 4: Scale Deployment from 2 to 3 replicas
+Execute in terminal:
+  kubectl scale deployment nginx-deploy --replicas=3
+
+STEP 5: Verify Deployment, Pods, and Services
+Execute in terminal:
+  kubectl get deployments
+  kubectl get pods -o wide
+  kubectl get svc nginx-service
+  minikube service nginx-service --url
+
+STEP 6: Test Access in Browser
+  # Run in terminal to open browser directly:
+  minikube service nginx-service
+  # Or use port forwarding if needed:
+  kubectl port-forward svc/nginx-service 6060:6060
+
+STEP 7: Install and Configure Nagios Core using Docker
+Execute in terminal:
+  docker run -d --name nagios4 -p 8085:80 jasonrivers/nagios:latest
+  docker ps | grep nagios4
+
+STEP 8: Access Nagios Web Interface
+  Open browser: http://localhost:8085
+  Credentials:
+    Username: nagiosadmin
+    Password: nagios
+
+WHAT TO SHOW TO MAM:
+1. Terminal: Run `kubectl get deployments`. Show `nginx-deploy` with `READY 3/3`, `UP-TO-DATE 3`, `AVAILABLE 3`.
+2. Terminal: Run `kubectl get pods -o wide`. Show all 3 pods running in `Running` status on the minikube node.
+3. Terminal: Run `kubectl get svc nginx-service`. Show NodePort service exposing port 6060 mapped to target port 80.
+4. Browser: Show Nginx "Welcome to nginx!" page opening via the Minikube URL.
+5. Browser: Show Nagios Core web interface (`http://localhost:8085`), click **Hosts** and **Services** in the left menu to show monitoring status dashboard.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+Q4.1: Increasing replicas from 2 to 5 causes some Pods to remain in "Pending" state:
+  - Reasons: Insufficient CPU or memory resources on the Minikube node; node reached maximum pod limit; resource quotas exceeded.
+  - Troubleshooting:
+    Run `kubectl describe pod <pending-pod-name>` and inspect the "Events:" section (look for `FailedScheduling: 0/1 nodes are available: insufficient cpu/memory`).
+    Increase minikube resources: `minikube start --cpus=4 --memory=8192`.
+Q4.2: Customer cannot access application through browser even though Pods are running:
+  - Reasons: Minikube runs inside a Docker VM, so NodePort is not automatically reachable directly on localhost unless bridged or port-forwarded.
+  - Solution: Run `minikube service nginx-service --url` to obtain the correct accessible cluster IP:NodePort, or run `kubectl port-forward svc/nginx-service 6060:6060` to access via `http://localhost:6060`.
+Q4.3: One of the application Pods crashes during booking; how does Kubernetes ensure replicas:
+  - Explanation: The Kubernetes **Deployment Controller** and underlying **ReplicaSet** continuously maintain a reconciliation loop between the **Desired State** (replicas = 3) and the **Actual State**. When a pod crashes, the ReplicaSet detects the actual running count is 2 (less than 3) and automatically schedules and spins up a new replacement pod immediately.
+Q4.4: Commands to verify Nagios status and configuration:
+  - Check container: `docker ps -f name=nagios4`
+  - Check container logs: `docker logs nagios4`
+  - Verify inside container: `docker exec -it nagios4 /usr/local/nagios/bin/nagios -v /usr/local/nagios/etc/nagios.cfg` (verifies configuration syntax without errors).
+================================================================================

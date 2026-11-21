@@ -1,0 +1,265 @@
+================================================================================
+                     SET-6 : COMPLETE STEP-BY-STEP LAB GUIDE
+           KMIT - Software Engineering Lab Internal II (A.Y 2026-2027)
+================================================================================
+GitHub Repository: https://github.com/deepthisagar7/library-management.git
+
+--------------------------------------------------------------------------------
+1. Docker – Multi-Container Application [20 MARKS]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Deploy WordPress frontend and MySQL backend for a Centralized Digital Library System using custom Docker network and persistent volumes.
+
+STEP 1: Create a dedicated directory
+Execute in terminal:
+  mkdir -p ~/set6_task1
+  cd ~/set6_task1
+
+STEP 2: Create Docker Compose file (docker-compose.yml)
+Execute in terminal:
+  cat << 'EOF' > docker-compose.yml
+version: '3.8'
+
+services:
+  library-db:
+    image: mysql:8.0
+    container_name: digital-library-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: libraryrootpassword
+      MYSQL_DATABASE: librarydb
+      MYSQL_USER: libraryuser
+      MYSQL_PASSWORD: librarypassword
+    volumes:
+      - library_db_data:/var/lib/mysql
+    networks:
+      - library-net
+
+  library-web:
+    image: wordpress:latest
+    container_name: digital-library-web
+    restart: always
+    ports:
+      - "8080:80"
+    environment:
+      WORDPRESS_DB_HOST: library-db:3306
+      WORDPRESS_DB_NAME: librarydb
+      WORDPRESS_DB_USER: libraryuser
+      WORDPRESS_DB_PASSWORD: librarypassword
+    volumes:
+      - library_wp_data:/var/www/html
+    depends_on:
+      - library-db
+    networks:
+      - library-net
+
+volumes:
+  library_db_data:
+    driver: local
+  library_wp_data:
+    driver: local
+
+networks:
+  library-net:
+    driver: bridge
+EOF
+
+STEP 3: Start containers
+Execute in terminal:
+  docker compose up -d
+
+STEP 4: Verify containers and test data persistence
+Execute in terminal:
+  docker compose ps
+  docker network inspect set6_task1_library-net
+  docker volume ls | grep library
+
+STEP 5: Access in browser
+  Open browser: http://localhost:8080/
+
+WHAT TO SHOW TO MAM:
+1. Terminal: `docker compose ps` showing `digital-library-db` and `digital-library-web` in "Up" status.
+2. Terminal: Show persistent volume and custom bridge network `library-net`.
+3. Browser: Open `http://localhost:8080/` showing the Digital Library WordPress setup.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+- If MySQL container crashes while WordPress is running: WordPress displays "Error establishing a database connection". Once MySQL restarts, WordPress reconnects automatically.
+- How database info is recovered after container deletion: Persistent named volume `library_db_data` keeps data on host disk independent of the container lifecycle.
+- Why custom Docker network is required: Provides automatic DNS resolution (allowing `library-web` to reach `library-db` by service name) and network isolation from other containers.
+- Prevent unauthorized access to MySQL: Do not expose port 3306 to the host or internet (`ports:` is omitted for mysql), use strong passwords, and restrict DB user privileges.
+- Deploy 5 department websites: Use Docker Compose to spin up 5 WordPress containers on different ports (e.g. 8081-8085) or use an Nginx reverse proxy routing `/dept1`, `/dept2` to separate containers.
+
+--------------------------------------------------------------------------------
+2. Jenkins – Java Application Build and Continuous Integration [20 MARKS]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Configure Jenkins Freestyle Project for `https://github.com/deepthisagar7/library-management.git`, execute Maven compile and test, and archive the WAR/JAR.
+
+STEP 1: Create Freestyle Project
+1. Open Jenkins: `http://localhost:8080`.
+2. Click **New Item** -> Name: `LibraryManagement-CI` -> Select **Freestyle project** -> Click **OK**.
+
+STEP 2: Configure Git Repository
+1. Source Code Management: Select **Git**.
+2. Repository URL: `https://github.com/deepthisagar7/library-management.git`
+3. Branch Specifier: `*/main` (or `*/master`).
+
+STEP 3: Configure Build Triggers
+1. Check **Poll SCM** -> Schedule: `H/5 * * * *` (or `* * * * *`).
+
+STEP 4: Configure Build Steps
+1. Add build step -> **Invoke top-level Maven targets**.
+   - Goals: `clean compile test package`
+   (Or Execute shell: `mvn clean compile test package`).
+
+STEP 5: Configure Post-Build Action
+1. Add post-build action -> **Archive the artifacts**.
+   - Files to archive: `target/*.war, target/*.jar`
+2. Click **Save**.
+
+STEP 6: Build Now & Verify
+1. Click **Build Now**.
+2. Check **Console Output** for `BUILD SUCCESS`.
+
+WHAT TO SHOW TO MAM:
+1. Jenkins job status showing green/blue successful build.
+2. **Console Output** showing Maven compilation and test execution.
+3. Click on the archived artifact link under the build.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+- How Jenkins identifies compilation errors: Maven exits with a non-zero exit code (`BUILD FAILURE`), which Jenkins detects and marks the build as FAILED (red).
+- If compilation succeeds but test cases fail: Surefire plugin reports test failures, Maven halts the build before the package phase, and Jenkins marks the build as UNSTABLE or FAILED.
+- Why Maven is used instead of manual JARs: Dependency management, automated transitive dependency resolution, and repeatable standardized builds.
+- How Jenkins builds only a specific GitHub branch: In "Branch Specifier", enter the exact branch name (e.g. `*/feature-branch` or `refs/heads/main`).
+- Difference between CI and CD: Continuous Integration (CI) automatically builds and tests code on every commit. Continuous Deployment (CD) automatically releases validated builds directly to production environments.
+
+--------------------------------------------------------------------------------
+3. Kubernetes – Container Deployment and Auto Scaling [20 MARKS]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Deploy on Minikube with 2 replicas, expose via Service, scale to 5 replicas, demonstrate self-healing, rolling update, and rollback.
+
+STEP 1: Start Minikube
+Execute in terminal:
+  minikube start --driver=docker
+
+STEP 2: Create Deployment with 2 Replicas
+Execute in terminal:
+  kubectl create deployment library-deploy --image=nginx:1.20 --replicas=2
+
+STEP 3: Expose Deployment using NodePort Service
+Execute in terminal:
+  kubectl expose deployment library-deploy --type=NodePort --port=8080 --target-port=80 --name=library-svc
+
+STEP 4: Scale Deployment from 2 to 5 Replicas
+Execute in terminal:
+  kubectl scale deployment library-deploy --replicas=5
+  kubectl get deployments
+  kubectl get pods -o wide
+
+STEP 5: Demonstrate Automatic Pod Recreation (Self-Healing)
+Execute in terminal:
+  kubectl delete pod <pod-name-from-kubectl-get-pods>
+  kubectl get pods
+
+STEP 6: Demonstrate Rolling Update and Rollback
+Execute in terminal:
+  # Update image to nginx:1.21:
+  kubectl set image deployment/library-deploy nginx=nginx:1.21 --record
+  kubectl rollout status deployment/library-deploy
+
+  # Rollback to previous version:
+  kubectl rollout undo deployment/library-deploy
+  kubectl rollout status deployment/library-deploy
+
+WHAT TO SHOW TO MAM:
+1. Terminal: `kubectl get deployments` showing `library-deploy` with `READY 5/5`.
+2. Terminal: `kubectl get pods -o wide` showing 5 running pods.
+3. Terminal: Show rolling update and successful `kubectl rollout undo` rollback message.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+- What happens when one pod crashes: The ReplicaSet controller detects the deficit in running pods and immediately creates a replacement pod to maintain desired count.
+- How Kubernetes maintains desired replicas: Continuous reconciliation loop inside the ReplicaSet controller.
+- Manual scaling vs Auto scaling: Manual scaling requires an administrator command (`kubectl scale`), while Auto scaling (HPA - Horizontal Pod Autoscaler) dynamically scales pods based on CPU/memory metrics.
+- Why a Kubernetes Service is required: Pod IPs are dynamic and ephemeral. A Service provides a stable IP and DNS name and performs load balancing across pods.
+- Recover from failed application update: Run `kubectl rollout undo deployment/<deployment-name>` to revert to the previous revision.
+
+--------------------------------------------------------------------------------
+4. Nagios – Infrastructure and Application Monitoring [20 MARKS]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Run Nagios Docker container, configure host and service monitoring (CPU, RAM, disk, HTTP, DB), and define WARNING/CRITICAL thresholds.
+
+STEP 1: Run Nagios Core in Docker
+Execute in terminal:
+  docker run -d --name library-nagios -p 8085:80 jasonrivers/nagios:latest
+
+STEP 2: Access Nagios Web Interface
+1. Browser: `http://localhost:8085`
+2. Credentials: Username: `nagiosadmin` | Password: `nagios`
+
+STEP 3: View Monitoring Dashboard
+1. Click **Hosts** on left panel (show `localhost` UP).
+2. Click **Services** (show HTTP, PING, SSH, Current Load, Root Partition OK).
+
+WHAT TO SHOW TO MAM:
+1. Nagios Dashboard at `http://localhost:8085`.
+2. Hosts and Services tables showing green **UP** and **OK** statuses.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+- How Nagios identifies high CPU: Uses the `check_load` plugin with WARNING and CRITICAL load average thresholds.
+- Difference between WARNING and CRITICAL: WARNING is an early indicator that a metric is elevated but still functional; CRITICAL signifies an outage or dangerous limit.
+- Detect application failure when server is running: `check_http` validates HTTP response codes and response content. If Tomcat crashes or returns 500/502, check fails even if server OS is running.
+- If Nagios monitoring server fails: Secondary redundant Nagios servers or external heartbeat checks alert administrators.
+- Identify if downtime is Tomcat, MySQL, or networking: If Host PING check passes (network OK) and port 3306 check passes (MySQL OK), but port 8080 check fails, the issue is isolated to Tomcat.
+
+--------------------------------------------------------------------------------
+5. AWS – Cloud Deployment using EC2 [20 MARKS]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Deploy Library Management application on an AWS Ubuntu EC2 instance, configure Security Groups, and access via Public IPv4.
+
+STEP 1: Launch EC2 Instance (AWS Console)
+1. AMI: Ubuntu 22.04 LTS (t2.micro).
+2. Key pair: `library-key.pem`.
+3. Security Group Rules:
+   - SSH (Port 22, Source: My IP or 0.0.0.0/0)
+   - Custom TCP (Port 8080, Source: 0.0.0.0/0)
+
+STEP 2: Connect to EC2
+  ssh -i library-key.pem ubuntu@<EC2-PUBLIC-IP>
+
+STEP 3: Install Java, Maven, Tomcat
+Execute on EC2:
+  sudo apt update -y
+  sudo apt install -y openjdk-17-jdk maven tomcat9
+  sudo systemctl start tomcat9
+
+STEP 4: Clone Repository and Deploy WAR
+Execute on EC2:
+  git clone https://github.com/deepthisagar7/library-management.git
+  cd library-management
+  mvn clean package
+  sudo cp target/*.war /var/lib/tomcat9/webapps/library-management.war
+  sudo systemctl restart tomcat9
+
+STEP 5: Access Application
+  Open browser: http://<EC2-PUBLIC-IP>:8080/library-management/
+
+WHAT TO SHOW TO MAM:
+1. AWS EC2 Console showing Running instance and Public IPv4.
+2. Security Groups showing Port 8080 inbound rule.
+3. Browser showing Library Management application running on `http://<EC2-PUBLIC-IP>:8080/library-management/`.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+- What causes EC2 application to be inaccessible via browser: Port 8080 not permitted in Security Group, Tomcat service stopped, or public IP changed.
+- Why SSH access should be restricted: Port 22 exposed to 0.0.0.0/0 invites brute-force SSH attacks; restricting to "My IP" enforces least-privilege security.
+- What happens if Tomcat stops while EC2 runs: The EC2 instance stays up, but web requests return "Connection Refused".
+- Improving application availability: Deploy across multiple Availability Zones using an **Application Load Balancer (ALB)** and **Auto Scaling Group (ASG)**.
+- Why ALB + multiple EC2 is better than single EC2: Eliminates single point of failure (SPOF), provides zero-downtime rolling deployments, and balances high traffic loads.
+================================================================================

@@ -1,0 +1,271 @@
+================================================================================
+                     SET-3 : COMPLETE STEP-BY-STEP LAB GUIDE
+           KMIT - Software Engineering Lab Internal II (A.Y 2026-2027)
+================================================================================
+GitHub Repository: https://github.com/deepthisagar7/metro-reservation.git
+
+--------------------------------------------------------------------------------
+a) Docker – Multi-Container Application [20 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Run Metro Reservation application in Tomcat and MySQL database in separate containers, establishing communication and data persistence.
+
+STEP 1: Create a dedicated directory
+Execute in terminal:
+  mkdir -p ~/set3_docker
+  cd ~/set3_docker
+
+STEP 2: Clone repository & build WAR (or use Docker Compose)
+Execute in terminal:
+  git clone https://github.com/deepthisagar7/metro-reservation.git
+  cd metro-reservation
+  mvn clean package
+
+STEP 3: Create Docker Compose configuration (docker-compose.yml)
+Execute in terminal:
+  cd ~/set3_docker
+  cat << 'EOF' > docker-compose.yml
+version: '3.8'
+
+services:
+  mysqldb:
+    image: mysql:8.0
+    container_name: metro-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: metro_db
+      MYSQL_USER: metro_user
+      MYSQL_PASSWORD: metro_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - metro_db_data:/var/lib/mysql
+    networks:
+      - metro-net
+
+  metro-app:
+    image: tomcat:9.0-jdk11-openjdk-slim
+    container_name: metro-tomcat
+    restart: always
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./metro-reservation/target/*.war:/usr/local/tomcat/webapps/metro-reservation.war
+    depends_on:
+      - mysqldb
+    networks:
+      - metro-net
+
+volumes:
+  metro_db_data:
+    driver: local
+
+networks:
+  metro-net:
+    driver: bridge
+EOF
+
+STEP 4: Run the multi-container application
+Execute in terminal:
+  docker compose up -d
+
+STEP 5: Verify containers, networks, and database
+Execute in terminal:
+  docker compose ps
+  docker network inspect set3_docker_metro-net
+  docker exec -it metro-mysql mysql -u root -proot -e "SHOW DATABASES; USE metro_db; CREATE TABLE IF NOT EXISTS tickets (id INT PRIMARY KEY, passenger VARCHAR(50), route VARCHAR(50)); INSERT INTO tickets VALUES (1, 'Ravi', 'Miyapur-LB Nagar'); SELECT * FROM tickets;"
+
+STEP 6: Access through browser
+  Open browser: http://localhost:8080/metro-reservation/
+
+WHAT TO SHOW TO MAM:
+1. Terminal: Run `docker compose ps` showing `metro-mysql` and `metro-tomcat` both "Up".
+2. Terminal: Run `docker exec -it metro-mysql mysql -u root -proot -e "SELECT * FROM metro_db.tickets;"` showing persistent records.
+3. Browser: Open `http://localhost:8080/metro-reservation/` showing the Metro Reservation system interface.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+- What happens if MySQL container stops: The application will throw database connection exceptions (e.g. `CommunicationsException`), and passengers cannot book tickets or view bookings.
+- Preserve passenger data after deleting container: Configure Docker named volumes (e.g. `metro_db_data:/var/lib/mysql`). The volume stores files on the host storage independent of container lifecycle.
+- Why run in separate containers: Separation of Concerns, independent scaling (scale web tier without duplicating DB), security isolation, and easy upgrades without downtime.
+- Prevent unauthorized access: Use strong non-root passwords, bind MySQL to the internal Docker network rather than exposing 3306 to 0.0.0.0, and configure database access control grants.
+- Troubleshoot DB connection: Verify DB container is running (`docker ps`), ping `mysqldb` hostname from app container, verify credentials and port 3306 in app configuration.
+
+--------------------------------------------------------------------------------
+b) Jenkins – Freestyle Project [20 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Build the Metro Reservation Java web application using Maven in a Jenkins Freestyle Project and generate the WAR file.
+
+STEP 1: Open Jenkins and Create New Project
+1. Open `http://localhost:8080`.
+2. Click **New Item** -> Name: `MetroReservation-Freestyle` -> Select **Freestyle project** -> Click **OK**.
+
+STEP 2: Configure Source Code Management (SCM)
+1. Select **Git**.
+2. Repository URL: `https://github.com/deepthisagar7/metro-reservation.git`
+3. Branch Specifier: `*/main` (or `*/master`).
+
+STEP 3: Configure Build Triggers
+1. Check **Poll SCM** -> Schedule: `H/5 * * * *` (or `* * * * *`).
+
+STEP 4: Configure Build Step
+1. Click **Add build step** -> **Invoke top-level Maven targets**.
+   - Goals: `clean package`
+   (If Maven plugin not linked, choose "Execute shell" -> `mvn clean package`).
+
+STEP 5: Configure Post-build Actions
+1. Click **Add post-build action** -> **Archive the artifacts**.
+   - Files to archive: `target/*.war`
+2. Click **Save**.
+
+STEP 6: Run Build and Verify
+1. Click **Build Now**.
+2. Click build `#1` -> **Console Output** to verify `BUILD SUCCESS`.
+
+WHAT TO SHOW TO MAM:
+1. Jenkins job status showing green/blue successful build indicator.
+2. **Console Output** showing Maven compiling source files and producing `[INFO] BUILD SUCCESS`.
+3. Post-build archived artifact: `metro-reservation.war` clickable link under build artifacts.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+- If developer introduces compilation errors: Maven compiler plugin fails the build with `[ERROR] COMPILATION ERROR`, and Jenkins marks the build status as FAILED (red).
+- How Jenkins detects GitHub changes: Through SCM polling (`Poll SCM` cron) or instant trigger via GitHub Webhooks (`github-webhook/`).
+- Difference between generating WAR and deploying on Tomcat: Generating a WAR packages classes, JSPs, and libraries into an archive file in `target/`. Deploying on Tomcat copies that WAR into Tomcat's `webapps/` directory and extracts it for HTTP access.
+- Why Maven is useful: Automates dependency resolution from central repositories, manages build lifecycle (compile, test, package), and standardizes project structure.
+- Troubleshoot incorrect pom.xml: Check Jenkins console output for XML parsing errors, missing dependency coordinates, or plugin version conflicts.
+
+--------------------------------------------------------------------------------
+c) System Monitoring using Nagios [20 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Deploy Nagios Core via Docker, configure host and service monitoring (CPU, memory, disk, uptime, HTTP), and view alerts.
+
+STEP 1: Run Nagios Core in Docker
+Execute in terminal:
+  docker run -d --name metro-nagios -p 8085:80 jasonrivers/nagios:latest
+
+STEP 2: Verify Nagios Container
+Execute in terminal:
+  docker ps -f name=metro-nagios
+
+STEP 3: Access Nagios Web Interface
+1. Browser: `http://localhost:8085`
+2. Credentials: Username: `nagiosadmin` | Password: `nagios`
+
+STEP 4: View Monitoring Dashboard
+1. Under **Current Status** on left panel:
+   - Click **Hosts**: Shows `localhost` (UP).
+   - Click **Services**: Shows HTTP, PING, SSH, Root Partition, Current Load, Total Processes (all OK/Green).
+
+WHAT TO SHOW TO MAM:
+1. Nagios Dashboard at `http://localhost:8085`.
+2. Click **Hosts** -> show Host Status UP in green.
+3. Click **Services** -> show table of monitored services (HTTP, Load, Disk) with OK status in green.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+- How Nagios identifies if server is running or down: Uses ICMP `check_ping` or host check command; if no response within timeout, marks host DOWN.
+- Difference between WARNING and CRITICAL: WARNING indicates a threshold breach requiring attention (e.g. 80% disk full), while CRITICAL means a service has failed or exceeded safe limits (e.g. service stopped or 95% disk full).
+- If CPU reaches 100%: Nagios `check_load` plugin triggers CRITICAL alert, notifying administrator to scale resources or restart stalled threads.
+- Detect app failure when server is running: Through active `check_http` service checks on port 8080. If Tomcat returns HTTP 500/502 or times out, Nagios flags service as CRITICAL even though OS host is UP.
+- Identify if problem is Tomcat, MySQL, or server: Check individual Nagios service status: if Host check is UP, MySQL port 3306 check is OK, but HTTP 8080 check is CRITICAL -> Tomcat has failed.
+
+--------------------------------------------------------------------------------
+d) Container Scaling using Kubernetes [20 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Deploy Metro Reservation on Minikube, scale replicas, verify status, and demonstrate automatic pod recreation.
+
+STEP 1: Start Minikube
+Execute in terminal:
+  minikube start --driver=docker
+
+STEP 2: Create Deployment with 2 Replicas
+Execute in terminal:
+  kubectl create deployment metro-app --image=nginx --replicas=2
+
+STEP 3: Expose Deployment via NodePort Service
+Execute in terminal:
+  kubectl expose deployment metro-app --type=NodePort --port=8080 --target-port=80 --name=metro-svc
+
+STEP 4: Scale Deployment to 5 Replicas
+Execute in terminal:
+  kubectl scale deployment metro-app --replicas=5
+
+STEP 5: Verify Deployment, Pods, and Services
+Execute in terminal:
+  kubectl get deployments
+  kubectl get pods -o wide
+  kubectl get svc metro-svc
+
+STEP 6: Demonstrate Automatic Pod Recreation (Self-Healing)
+Execute in terminal:
+  # Delete one running pod:
+  kubectl delete pod <pod-name-from-kubectl-get-pods>
+  # Immediately inspect pods:
+  kubectl get pods
+
+WHAT TO SHOW TO MAM:
+1. Terminal: `kubectl get deployments` showing `metro-app` with `READY 5/5`.
+2. Terminal: `kubectl get pods -o wide` showing 5 running pods.
+3. Terminal: Demonstrate deleting a pod and show Kubernetes immediately spawning a replacement pod (status `ContainerCreating` -> `Running`).
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+- What happens if one pod crashes during ticket booking: The Kubernetes ReplicaSet controller detects the failure and immediately schedules and boots a new pod to maintain the desired count of 5 replicas.
+- How Kubernetes maintains desired replicas: A continuous reconciliation control loop inside the ReplicaSet compares `Spec.Replicas` with actual running pods.
+- Difference between scaling up and scaling down: Scaling up increases replica count to distribute load during traffic spikes; scaling down reduces replicas during idle hours to conserve compute resources.
+- How Kubernetes distributes incoming requests: A Kubernetes Service acts as an internal Layer 4 load balancer using `kube-proxy` (iptables/IPVS) to distribute traffic round-robin across all healthy pod endpoints.
+
+--------------------------------------------------------------------------------
+e) AWS Deployment using EC2 [20 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Launch an Ubuntu EC2 instance on AWS, install Tomcat/Docker, deploy the Metro Reservation application, and access via EC2 Public IPv4.
+
+STEP 1: Launch EC2 Instance (AWS Console)
+1. AMI: Ubuntu 22.04 LTS (t2.micro).
+2. Key pair: `metro-key.pem`.
+3. Security Group Rules:
+   - SSH (Port 22, Source 0.0.0.0/0)
+   - Custom TCP (Port 8080, Source 0.0.0.0/0)
+   - HTTP (Port 80, Source 0.0.0.0/0)
+
+STEP 2: Connect to EC2
+  ssh -i metro-key.pem ubuntu@<EC2-PUBLIC-IP>
+
+STEP 3: Install Java, Maven, and Tomcat
+Execute on EC2:
+  sudo apt update -y
+  sudo apt install -y openjdk-17-jdk maven tomcat9
+  sudo systemctl start tomcat9
+  sudo systemctl enable tomcat9
+
+STEP 4: Clone and Deploy Application
+Execute on EC2:
+  git clone https://github.com/deepthisagar7/metro-reservation.git
+  cd metro-reservation
+  mvn clean package
+  sudo cp target/*.war /var/lib/tomcat9/webapps/metro-reservation.war
+  sudo systemctl restart tomcat9
+
+STEP 5: Access Application
+  Open browser: http://<EC2-PUBLIC-IP>:8080/metro-reservation/
+
+WHAT TO SHOW TO MAM:
+1. AWS EC2 Console showing Running instance and Public IPv4 address.
+2. Security Groups showing inbound rule for Port 8080.
+3. EC2 terminal showing `mvn clean package` BUILD SUCCESS.
+4. Browser showing the Metro Reservation application running on `http://<EC2-PUBLIC-IP>:8080/metro-reservation/`.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+- Reasons if passengers cannot access via Public IP: Security Group does not allow port 8080, Tomcat service is stopped (`systemctl status tomcat9`), or public IP changed after instance restart.
+- Why configure HTTP and Tomcat ports in Security Group: Security Groups act as a virtual firewall; by default, all inbound traffic except SSH is blocked. Port 8080 must be explicitly allowed.
+- What happens if Tomcat stops while EC2 runs: The EC2 instance remains reachable via SSH, but HTTP requests to the web application fail with "Connection Refused".
+- High availability if EC2 fails: Deploy an **Auto Scaling Group (ASG)** with an **Application Load Balancer (ALB)** spanning multiple Availability Zones.
+- Advantages of AWS over local server: Elastic scalability, pay-as-you-go pricing, 99.99% high availability SLA, automated backups, and global low-latency access.
+================================================================================

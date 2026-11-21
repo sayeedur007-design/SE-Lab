@@ -1,0 +1,268 @@
+================================================================================
+                     SET-4 : COMPLETE STEP-BY-STEP LAB GUIDE
+           KMIT - Software Engineering Lab Internal II (A.Y 2026-2027)
+================================================================================
+GitHub Repository: https://github.com/haleema91/LAB-INTERNAL-II-OVR1.git
+
+--------------------------------------------------------------------------------
+Q1. AWS EC2 Deployment – Online Vehicle Rental Maven Java Application [25 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Deploy Maven Java standalone application on AWS Ubuntu EC2 inside a Docker container, verifying output via container logs.
+
+STEP 1: Launch Ubuntu EC2 Instance (AWS Console)
+1. AMI: Ubuntu Server 22.04 LTS (t2.micro).
+2. Key pair: `ovr-key.pem`.
+3. Security Group Inbound Rules:
+   - SSH (Port 22, Source 0.0.0.0/0)
+
+STEP 2: Connect to EC2
+  ssh -i ovr-key.pem ubuntu@<EC2-PUBLIC-IP>
+
+STEP 3: Install Git, Maven, and Docker
+Execute on EC2:
+  sudo apt update -y
+  sudo apt install -y git maven docker.io
+  sudo systemctl start docker
+  sudo systemctl enable docker
+  sudo usermod -aG docker ubuntu
+  newgrp docker
+
+STEP 4: Clone Repository and Build Standalone JAR
+Execute on EC2:
+  git clone https://github.com/haleema91/LAB-INTERNAL-II-OVR1.git
+  cd LAB-INTERNAL-II-OVR1
+  mvn clean package
+
+STEP 5: Create Dockerfile for Standalone Java Application
+Execute on EC2 inside the project directory:
+  cat << 'EOF' > Dockerfile
+FROM openjdk:17-slim
+WORKDIR /app
+COPY target/*.jar app.jar
+ENTRYPOINT ["java", "-jar", "app.jar"]
+EOF
+
+STEP 6: Build Docker Image and Run Container
+Execute on EC2:
+  docker build -t vehicle-rental-app:v1 .
+  docker run -d --name vehicle-rental-container vehicle-rental-app:v1
+
+STEP 7: Verify Execution through Container Logs
+Execute on EC2:
+  docker ps -a
+  docker logs vehicle-rental-container
+
+WHAT TO SHOW TO MAM:
+1. AWS Console: Running Ubuntu EC2 instance and its Public IPv4 address.
+2. Terminal on EC2: Successful `mvn clean package` output generating executable JAR.
+3. Terminal on EC2: `docker build` completed and `docker logs vehicle-rental-container` showing application execution output.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+Q1.1: Connect via SSH and steps if SSH fails:
+  - Command: `ssh -i ovr-key.pem ubuntu@<EC2-IP>`.
+  - Troubleshooting: Verify key file permissions (`chmod 400 ovr-key.pem`), verify Security Group allows port 22 inbound, check instance public IP.
+Q1.2: Maven commands to clean, compile, test, and package:
+  - Commands: `mvn clean`, `mvn compile`, `mvn test`, `mvn package`. Or all in one: `mvn clean package`.
+Q1.3: Docker commands to run, check status, inspect logs, and stop:
+  - Run: `docker run -d --name vehicle-rental-container vehicle-rental-app:v1`
+  - Status: `docker ps -a`
+  - Logs: `docker logs vehicle-rental-container`
+  - Stop: `docker stop vehicle-rental-container`
+
+--------------------------------------------------------------------------------
+Q2. Kubernetes – Container Deployment, Auto Scaling and Monitoring [25 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Deploy on Minikube with 3 replicas, expose NodePort on port 6060, scale to 5 replicas, and monitor using Nagios Docker container.
+
+STEP 1: Start Minikube
+Execute in terminal:
+  minikube start --driver=docker
+
+STEP 2: Create Deployment with 3 Replicas
+Execute in terminal:
+  kubectl create deployment ovr-nginx --image=nginx --replicas=3
+
+STEP 3: Expose Deployment using NodePort on Port 6060
+Execute in terminal:
+  kubectl expose deployment ovr-nginx --type=NodePort --port=6060 --target-port=80 --name=ovr-service
+
+STEP 4: Scale Deployment to 5 Replicas
+Execute in terminal:
+  kubectl scale deployment ovr-nginx --replicas=5
+
+STEP 5: Verify Deployments, Pods, and Services
+Execute in terminal:
+  kubectl get deployments
+  kubectl get pods -o wide
+  kubectl get svc ovr-service
+
+STEP 6: Access Service in Browser
+Execute in terminal:
+  kubectl port-forward svc/ovr-service 6060:6060
+  # Browser: http://localhost:6060
+
+STEP 7: Install and Configure Nagios Core using Docker
+Execute in terminal:
+  docker run -d --name ovr-nagios -p 8085:80 jasonrivers/nagios:latest
+  docker ps | grep ovr-nagios
+
+STEP 8: Access Nagios Web Interface
+  Open browser: http://localhost:8085 (Username: `nagiosadmin`, Password: `nagios`)
+
+WHAT TO SHOW TO MAM:
+1. Terminal: `kubectl get deployments` showing `ovr-nginx` with `READY 5/5`.
+2. Terminal: `kubectl get pods -o wide` showing 5 active pods running.
+3. Terminal: `kubectl get svc ovr-service` showing NodePort service on port 6060.
+4. Browser: `http://localhost:6060` loading the Nginx welcome page.
+5. Browser: `http://localhost:8085` Nagios dashboard showing hosts and services up.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+Q2.1: Exposing application externally via NodePort and Minikube URL:
+  - Command: `kubectl expose deployment ovr-nginx --type=NodePort --port=6060 --target-port=80`.
+  - In Minikube, execute `minikube service ovr-service --url` to get the host access URL, or run `kubectl port-forward svc/ovr-service 6060:6060`.
+Q2.2: Scaling to replicas causes Pods to remain in Pending state:
+  - Cause: Insufficient CPU/Memory resources on the Minikube cluster node.
+  - Troubleshooting: Run `kubectl describe pod <pod-name>` and look at "Events" for `FailedScheduling: 0/1 nodes are available: insufficient memory/cpu`.
+Q2.3: Install Nagios Core via Docker and verify status:
+  - Command: `docker run -d --name ovr-nagios -p 8085:80 jasonrivers/nagios:latest`.
+  - Status commands: `docker ps`, `docker logs ovr-nagios`, and verify web UI on port 8085.
+
+--------------------------------------------------------------------------------
+Q3. Jenkins Freestyle Project – Online Vehicle Rental Maven Java Application [25 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Automate the build of `https://github.com/haleema91/LAB-INTERNAL-II-OVR1.git` using Jenkins Freestyle project named `Vehicle-Rental`, execute clean, install, test, and archive the JAR.
+
+STEP 1: Create Freestyle Project
+1. Open Jenkins: `http://localhost:8080`.
+2. Click **New Item** -> Name: `Vehicle-Rental` -> Select **Freestyle project** -> Click **OK**.
+
+STEP 2: Configure SCM (Git)
+1. Select **Git**.
+2. Repository URL: `https://github.com/haleema91/LAB-INTERNAL-II-OVR1.git`
+3. Branch Specifier: `*/main` (or `*/master`).
+
+STEP 3: Configure Build Triggers
+1. Check **GitHub hook trigger for GITScm polling** (or **Poll SCM** with `* * * * *`).
+
+STEP 4: Configure Build Steps
+1. Click **Add build step** -> **Invoke top-level Maven targets**.
+   - Goals: `clean install test`
+   (If Maven plugin not linked: choose "Execute shell" -> `mvn clean install test`).
+
+STEP 5: Configure Post-Build Action (Archive JAR)
+1. Click **Add post-build action** -> **Archive the artifacts**.
+   - Files to archive: `target/*.jar`
+2. Click **Save**.
+
+STEP 6: Execute Build and Verify
+1. Click **Build Now**.
+2. Check **Console Output** for `BUILD SUCCESS`.
+
+WHAT TO SHOW TO MAM:
+1. Jenkins project dashboard showing green/blue build indicator for `Vehicle-Rental`.
+2. **Console Output** showing `mvn clean install test` ending with `[INFO] BUILD SUCCESS` and `Finished: SUCCESS`.
+3. Build page showing archived `.jar` file under "Last Successful Artifacts".
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+Q3.1: Configure Post-Build Action to archive generated JAR file:
+  - In project settings, scroll to "Post-build Actions", click "Add post-build action", select "Archive the artifacts", and specify file pattern: `target/*.jar` (or `**/*.jar`).
+Q3.2: Configure GitHub Webhook and Jenkins trigger:
+  - In Jenkins project, check "GitHub hook trigger for GITScm polling". In GitHub repository -> Settings -> Webhooks -> Add webhook -> Payload URL: `http://<jenkins-ip>:8080/github-webhook/`, Content-type: `application/json`.
+Q3.3: Jenkins fails during Maven execution with Java/Maven errors:
+  - Open Console Output to identify error details. Go to Jenkins -> Manage Jenkins -> Tools -> Verify configured JDK and Maven home paths. Ensure project Java version matches Jenkins JDK.
+
+--------------------------------------------------------------------------------
+Q4. Docker Compose – Online Vehicle Rental Website Using WordPress and MySQL [25 Marks]
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+Run WordPress and MySQL containers with persistent volumes, environment variables, and verify web access.
+
+STEP 1: Create a dedicated directory
+Execute in terminal:
+  mkdir -p ~/set4_task4
+  cd ~/set4_task4
+
+STEP 2: Create Docker Compose configuration (docker-compose.yml)
+Execute in terminal:
+  cat << 'EOF' > docker-compose.yml
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: ovr-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wpuser
+      MYSQL_PASSWORD: wppassword
+    volumes:
+      - ovr_db_data:/var/lib/mysql
+    networks:
+      - ovr-net
+
+  wordpress:
+    image: wordpress:latest
+    container_name: ovr-wordpress
+    restart: always
+    ports:
+      - "8080:80"
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DB_USER: wpuser
+      WORDPRESS_DB_PASSWORD: wppassword
+    volumes:
+      - ovr_wp_data:/var/www/html
+    depends_on:
+      - db
+    networks:
+      - ovr-net
+
+volumes:
+  ovr_db_data:
+    driver: local
+  ovr_wp_data:
+    driver: local
+
+networks:
+  ovr-net:
+    driver: bridge
+EOF
+
+STEP 3: Start containers
+Execute in terminal:
+  docker compose up -d
+
+STEP 4: Verify containers and volumes
+Execute in terminal:
+  docker compose ps
+  docker volume ls | grep ovr
+
+STEP 5: Access in browser
+  Open browser: http://localhost:8080/
+
+WHAT TO SHOW TO MAM:
+1. Terminal: `docker compose ps` showing `ovr-mysql` and `ovr-wordpress` running in "Up" status.
+2. Terminal: `docker volume ls` showing `ovr_db_data` and `ovr_wp_data` created.
+3. Browser: Open `http://localhost:8080/` showing the WordPress installation/welcome setup screen.
+
+SCENARIO-BASED ANSWERS FOR VIVA / LAB EVALUATION:
+Q4.1: Why data is lost when MySQL is recreated, and how volumes preserve it:
+  - Containers are ephemeral; data inside container directories is lost when removed. Configuring named volume `ovr_db_data:/var/lib/mysql` persists data on the host disk even when the container is deleted.
+Q4.2: Application fails to connect to MySQL database troubleshooting:
+  - Check container status: `docker compose ps` to ensure DB is running.
+  - Check logs: `docker compose logs db` to ensure MySQL initialized.
+  - Check DB hostname in WordPress: Must use service name `db`, not `localhost`.
+Q4.3: Standalone JAR Docker container exits immediately after execution:
+  - Standalone console apps terminate once the `main()` method completes unless kept alive.
+  - Check exit reason: `docker ps -a` (shows Exit code). Inspect logs: `docker logs <container-id>` to check for exceptions. If background execution is needed, run with `tail -f /dev/null` or interactive `-it`.
+================================================================================
