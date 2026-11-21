@@ -1,0 +1,51 @@
+# ==========================================
+# 1. INSTALL ANTIGRAVITY CLI
+# ==========================================
+irm https://antigravity.google/cli/install.ps1 | iex
+
+# ==========================================
+# 2. RESTART TERMINAL, THEN VERIFY INSTALLATION
+# ==========================================
+agy --version
+
+# ==========================================
+# 3. NAVIGATE TO YOUR PROJECT
+# (Change this path to your project)
+# ==========================================
+cd "D:\notes\wt\MERN_Workshop_Registration_App"
+
+# ==========================================
+# 4. START ANTIGRAVITY CLI
+# ==========================================
+agy
+
+# ==========================================
+# 5. START WITH AN INITIAL PROMPT
+# ==========================================
+agy -i "Analyze this project, understand the frontend, backend, database, folder structure and explain how everything works. Do not modify any files yet."
+
+# ==========================================
+# 6. RUN A ONE-TIME PROMPT
+# ==========================================
+agy -p "Explain the architecture of this project."
+
+# ==========================================
+# 7. CHECK CLI HELP
+# ==========================================
+agy --help
+
+# ==========================================
+# 8. INSIDE ANTIGRAVITY CLI
+# Type these after launching agy
+# ==========================================
+/help
+/goal
+/grill-me
+/resume
+/rewind
+/model
+/usage
+/config
+/agents
+/clear
+/exit
