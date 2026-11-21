@@ -1,0 +1,42 @@
+
+services:
+
+  mysql:
+    image: mysql:8.0
+    container_name: library-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: library_db
+      MYSQL_USER: library_user
+      MYSQL_PASSWORD: library123
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - library_network
+
+  wordpress:
+    image: wordpress:latest
+    container_name: library-wordpress
+    restart: always
+    ports:
+      - "8080:80"
+    environment:
+      WORDPRESS_DB_HOST: mysql:3306
+      WORDPRESS_DB_NAME: library_db
+      WORDPRESS_DB_USER: library_user
+      WORDPRESS_DB_PASSWORD: library123
+    depends_on:
+      - mysql
+    volumes:
+      - wordpress_data:/var/www/html
+    networks:
+      - library_network
+
+volumes:
+  mysql_data:
+  wordpress_data:
+
+networks:
+  library_network:
+    driver: bridge

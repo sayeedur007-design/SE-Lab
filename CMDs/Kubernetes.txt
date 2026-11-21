@@ -1,0 +1,112 @@
+# ==================================================
+# KUBERNETES LAB PRACTICAL - NGINX
+# ==================================================
+
+# STEP 1: INSTALL REQUIRED SOFTWARE (run in PowerShell)
+winget install Kubernetes.minikube
+winget install Kubernetes.kubectl
+
+# Restart PowerShell after installation
+
+
+# STEP 2: CHECK INSTALLATION
+docker --version
+minikube version
+kubectl version --client
+
+
+# STEP 3: START DOCKER DESKTOP
+# Open Docker Desktop manually and wait until Docker Engine is running
+
+
+# STEP 4: START MINIKUBE CLUSTER
+minikube start --driver=docker
+
+# Check cluster
+minikube status
+kubectl get nodes
+
+
+# STEP 5: CREATE DEPLOYMENT WITH 2 REPLICAS
+kubectl create deployment library-deploy --image=nginx:1.20 --replicas=2
+
+# Check deployment
+kubectl get deployments
+kubectl get pods
+
+
+# STEP 6: EXPOSE DEPLOYMENT USING NODEPORT SERVICE
+kubectl expose deployment library-deploy --type=NodePort --port=8080 --target-port=80 --name=library-svc
+
+# Check service
+kubectl get services
+
+# Open Nginx in browser
+minikube service library-svc
+
+
+# STEP 7: SCALE FROM 2 REPLICAS TO 5
+kubectl scale deployment library-deploy --replicas=5
+
+# Verify scaling
+kubectl get deployments
+kubectl get pods
+
+
+# STEP 8: TEST SELF-HEALING
+# First, get the Pod names
+kubectl get pods
+
+# Delete one Pod (replace POD-NAME with an actual Pod name)
+kubectl delete pod POD-NAME
+
+# Check Pods again
+kubectl get pods
+
+# Kubernetes automatically creates a replacement Pod
+
+
+# STEP 9: ROLLING UPDATE
+# Update Nginx from version 1.20 to 1.21
+kubectl set image deployment/library-deploy nginx=nginx:1.21
+
+# Check rolling update status
+kubectl rollout status deployment/library-deploy
+
+# Check deployment and Pods
+kubectl get deployments
+kubectl get pods
+
+
+# STEP 10: ROLLBACK
+# Revert to the previous version
+kubectl rollout undo deployment/library-deploy
+
+# Check rollback status
+kubectl rollout status deployment/library-deploy
+
+# Verify
+kubectl get deployments
+kubectl get pods
+
+
+# STEP 11: USEFUL EXAM COMMANDS
+kubectl get pods
+kubectl get pods -o wide
+kubectl get deployments
+kubectl get services
+kubectl describe pod POD-NAME
+kubectl describe deployment library-deploy
+kubectl logs POD-NAME
+kubectl rollout history deployment/library-deploy
+
+
+# STEP 12: CLEANUP (OPTIONAL)
+kubectl delete service library-svc
+kubectl delete deployment library-deploy
+
+# Stop Minikube
+minikube stop
+
+# Delete the entire Minikube cluster (only if you want to remove it)
+minikube delete

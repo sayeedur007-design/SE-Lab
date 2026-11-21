@@ -1,0 +1,245 @@
+# Download the WordPress and MySQL images
+docker compose pull
+
+# Start both containers in the background
+docker compose up -d
+
+# Check whether the containers are running
+docker ps
+
+# Open the WordPress application in your browser
+# http://localhost:8080
+
+# Stop and remove containers (data remains in volumes)
+docker compose down
+
+# Start the containers again whenever required
+docker compose up -d
+
+
+-----------------------------------------------------------------
+
+
+# ==================================================
+# 1. CREATE PROJECT FOLDER (do this manually in Windows)
+# ==================================================
+# Create a folder and open it in VS Code.
+# Create docker-compose.yml and/or Dockerfile inside it.
+# Save the files before running commands.
+
+# ==================================================
+# 2. START DOCKER DESKTOP
+# ==================================================
+# Open Docker Desktop manually and wait until Docker Engine is running.
+
+# ==================================================
+# 3. CHECK DOCKER
+# ==================================================
+docker --version
+docker compose version
+docker info
+
+# ==================================================
+# 4. PULL REQUIRED IMAGES
+# ==================================================
+# WordPress + MySQL
+docker pull wordpress:latest
+docker pull mysql:8.0
+
+# Tomcat + MySQL (Java web applications)
+docker pull tomcat:9
+docker pull mysql:8.0
+
+# Nginx (if required)
+docker pull nginx:latest
+
+# ==================================================
+# 5. START CONTAINERS USING DOCKER COMPOSE
+# ==================================================
+# Run this inside the folder containing docker-compose.yml
+
+docker compose pull
+docker compose up -d
+
+# ==================================================
+# 6. CHECK RUNNING CONTAINERS
+# ==================================================
+docker ps
+docker ps -a
+
+# ==================================================
+# 7. CHECK DOWNLOADED IMAGES
+# ==================================================
+docker images
+
+# ==================================================
+# 8. CHECK NETWORKS
+# ==================================================
+docker network ls
+
+# ==================================================
+# 9. CHECK VOLUMES (PERSISTENT STORAGE)
+# ==================================================
+docker volume ls
+
+# ==================================================
+# 10. VIEW CONTAINER LOGS
+# ==================================================
+docker logs library-mysql
+docker logs library-wordpress
+
+# Follow logs continuously
+docker logs -f library-mysql
+
+# ==================================================
+# 11. ENTER A RUNNING CONTAINER (VIVA)
+# ==================================================
+docker exec -it library-mysql bash
+
+# Exit the container shell
+exit
+
+# ==================================================
+# 12. LOGIN TO MYSQL INSIDE THE CONTAINER
+# ==================================================
+docker exec -it library-mysql mysql -u root -p
+
+# Enter the MySQL root password when prompted
+
+# ==================================================
+# 13. MYSQL COMMANDS (AFTER LOGIN)
+# ==================================================
+# Show databases
+SHOW DATABASES;
+
+# Select database
+USE library_db;
+
+# Create table
+CREATE TABLE students (
+    id INT PRIMARY KEY,
+    name VARCHAR(50),
+    department VARCHAR(50)
+);
+
+# Insert records
+INSERT INTO students VALUES
+(1, 'Yunis', 'CSE'),
+(2, 'Student2', 'IT');
+
+# Display records
+SELECT * FROM students;
+
+# Exit MySQL
+EXIT;
+
+# ==================================================
+# 14. STOP A CONTAINER (FAILURE DEMONSTRATION)
+# ==================================================
+docker stop library-mysql
+
+# Check what is running
+docker ps
+
+# ==================================================
+# 15. START THE STOPPED CONTAINER
+# ==================================================
+docker start library-mysql
+
+# ==================================================
+# 16. RESTART A CONTAINER
+# ==================================================
+docker restart library-mysql
+
+# ==================================================
+# 17. DELETE A CONTAINER (RECOVERY DEMONSTRATION)
+# ==================================================
+docker rm -f library-mysql
+
+# ==================================================
+# 18. RECREATE CONTAINERS USING COMPOSE
+# ==================================================
+docker compose up -d
+
+# ==================================================
+# 19. VERIFY DATA PERSISTENCE
+# ==================================================
+docker volume ls
+docker ps
+
+# Login again to check whether database data exists
+docker exec -it library-mysql mysql -u root -p
+
+# Inside MySQL
+SHOW DATABASES;
+USE library_db;
+SHOW TABLES;
+SELECT * FROM students;
+EXIT;
+
+# ==================================================
+# 20. BUILD A DOCKER IMAGE USING A DOCKERFILE
+# ==================================================
+# Run inside the folder containing Dockerfile
+
+docker build -t library-app .
+
+# ==================================================
+# 21. CHECK YOUR CREATED IMAGE
+# ==================================================
+docker images
+
+# ==================================================
+# 22. RUN YOUR CUSTOM IMAGE
+# ==================================================
+docker run -d -p 8080:8080 --name library-app library-app
+
+# ==================================================
+# 23. CHECK CUSTOM CONTAINER
+# ==================================================
+docker ps
+docker logs library-app
+
+# ==================================================
+# 24. ACCESS APPLICATION
+# ==================================================
+# Open browser:
+# http://localhost:8080
+
+# ==================================================
+# 25. STOP CUSTOM CONTAINER
+# ==================================================
+docker stop library-app
+
+# ==================================================
+# 26. START CUSTOM CONTAINER AGAIN
+# ==================================================
+docker start library-app
+
+# ==================================================
+# 27. REMOVE CUSTOM CONTAINER
+# ==================================================
+docker rm -f library-app
+
+# ==================================================
+# 28. REMOVE CUSTOM IMAGE (IF REQUIRED)
+# ==================================================
+docker rmi library-app
+
+# ==================================================
+# 29. STOP DOCKER COMPOSE APPLICATION
+# ==================================================
+docker compose down
+
+# ==================================================
+# 30. STOP AND DELETE VOLUMES (WARNING: DATA LOSS)
+# ==================================================
+docker compose down -v
+
+# ==================================================
+# 31. REMOVE UNUSED DOCKER RESOURCES (VIVA)
+# ==================================================
+docker system prune
+
+# Remove unused images, containers, networks and cache
+docker system prune -a
