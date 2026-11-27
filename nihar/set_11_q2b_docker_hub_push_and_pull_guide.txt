@@ -1,0 +1,75 @@
+================================================================================
+SET 11 - Q2(b): BUILD DOCKER IMAGE, PUSH TO DOCKER HUB, PULL & RUN
+Repository Used: https://github.com/raekuntaadithya-hub/maven_web.git
+================================================================================
+
+QUESTION:
+"Build a Docker image of the application, upload it to Docker Hub, and download
+ the same image on another system to run the application."
+
+--------------------------------------------------------------------------------
+STEP 1: CLONE & BUILD THE MAVEN .WAR FILE
+--------------------------------------------------------------------------------
+>>> [ATTENTION - RUN THESE COMMANDS IN CMD] >>>
+
+    git clone https://github.com/raekuntaadithya-hub/maven_web.git
+    cd maven_web
+    mvn clean package
+
+<<< [VERIFY: target\maven_web.war IS CREATED] <<<
+
+
+--------------------------------------------------------------------------------
+STEP 2: CREATE A `Dockerfile` IN THE `maven_web` FOLDER
+--------------------------------------------------------------------------------
+Create a file named `Dockerfile` (no extension) inside `maven_web` with:
+
+    FROM tomcat:9.0-jdk17
+    RUN rm -rf /usr/local/tomcat/webapps/*
+    COPY target/*.war /usr/local/tomcat/webapps/ROOT.war
+    EXPOSE 8080
+    CMD ["catalina.sh", "run"]
+
+
+--------------------------------------------------------------------------------
+STEP 3: BUILD, TAG & PUSH IMAGE TO DOCKER HUB (SYSTEM 1)
+--------------------------------------------------------------------------------
+(Replace `<your-dockerhub-username>` with your actual Docker Hub ID)
+
+>>> [ATTENTION - RUN THESE COMMANDS IN CMD] >>>
+
+    docker login
+    docker build -t maven-web-app .
+    docker tag maven-web-app <your-dockerhub-username>/maven-web-app:v1
+    docker push <your-dockerhub-username>/maven-web-app:v1
+
+<<< [VERIFY: IMAGE APPEARS IN YOUR DOCKER HUB REPOSITORIES ON BROWSER] <<<
+
+
+--------------------------------------------------------------------------------
+STEP 4: DOWNLOAD (PULL) & RUN ON ANOTHER SYSTEM (OR AFTER DELETING LOCAL IMAGE)
+--------------------------------------------------------------------------------
+*(Tip: If evaluating on the same PC, delete the local image first with
+ `docker rmi <your-dockerhub-username>/maven-web-app:v1` to prove `docker pull`
+ downloads it fresh from Docker Hub!)*
+
+>>> [ATTENTION - RUN THESE COMMANDS IN CMD] >>>
+
+    docker pull <your-dockerhub-username>/maven-web-app:v1
+    docker run -d -p 8081:8080 --name pulled-web-app <your-dockerhub-username>/maven-web-app:v1
+    docker ps
+
+<<< [OPEN BROWSER AT: http://localhost:8081/] <<<
+
+
+--------------------------------------------------------------------------------
+WHAT TO SHOW THE FACULTY FOR EVALUATION
+--------------------------------------------------------------------------------
+1. CMD Terminal (Build & Push):
+   - Show `docker build`, `docker tag`, and `docker push` output.
+2. Docker Hub Website (Browser):
+   - Refresh `https://hub.docker.com/` and show `<your-dockerhub-username>/maven-web-app:v1` uploaded online.
+3. CMD Terminal (Pull & Run):
+   - Show `docker pull` downloading the layers and `docker ps` showing `pulled-web-app` Up on port `8081`.
+4. Live Web App:
+   - Open `http://localhost:8081/` in Chrome showing the running web application.

@@ -1,0 +1,105 @@
+
+==================================================
+1. DOCKER: BUILD AND RUN A MAVEN WEB APPLICATION
+==================================================
+
+cd maven_web
+mvn clean package
+ls target
+
+nano Dockerfile
+Dockerfile:
+
+FROM tomcat:10.1-jdk21-temurin
+COPY target/*.war /usr/local/tomcat/webapps/ROOT.war
+EXPOSE 8080
+CMD ["catalina.sh", "run"]
+
+docker build -t maven-app .
+docker images
+
+docker rm -f maven-app
+docker run -d -p 8082:8080 --name maven-app maven-app
+docker ps
+
+http://localhost:8082
+
+STEP 11: Stop and remove the container
+
+docker stop maven-app
+docker rm maven-app
+
+
+==================================================
+2. DOCKER HUB
+==================================================
+
+cd maven_web
+mvn clean package
+nano Dockerfile
+Dockerfile:
+FROM tomcat:10.1-jdk21-temurin
+COPY target/*.war /usr/local/tomcat/webapps/ROOT.war
+EXPOSE 8080
+CMD ["catalina.sh", "run"]
+
+
+docker build -t maven-app .
+
+
+
+docker login
+
+
+docker tag maven-app yourusername/maven-app:latest
+
+
+
+docker push yourusername/maven-app:latest
+
+
+docker pull yourusername/maven-app:latest
+
+
+docker run -d -p 8080:8080 --name mywebapp yourusername/maven-app:latest
+
+
+docker ps
+
+
+http://localhost:8080
+
+
+==================================================
+3. NAGIOS
+==================================================
+
+docker run -d --name nagios -p 8888:80 jasonrivers/nagios:latest
+
+Open localhost:8888 for Nagios website.
+
+Username: nagiosadmin
+Password: nagios
+
+
+==================================================
+4. KUBERNETES
+==================================================
+
+minikube start
+
+kubectl create deployment nginx --image=nginx
+
+kubectl expose deployment nginx --type=NodePort --port=80
+
+kubectl scale deployment nginx --replicas=4
+
+kubectl get deployments
+
+kubectl get pods
+
+kubectl get services
+
+minikube service nginx --url
+
+minikube dashboard

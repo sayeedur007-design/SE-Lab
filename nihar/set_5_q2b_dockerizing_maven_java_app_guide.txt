@@ -1,0 +1,81 @@
+================================================================================
+SET 5 - Q2(b): DOCKERIZE MAVEN JAVA APPLICATION, RUN WITH PORT MAPPING & VERIFY
+Repository Used: https://github.com/raekuntaadithya-hub/MavenJavaNew.git
+================================================================================
+
+QUESTION:
+"Create a Docker image for the generated Java application, run it inside a
+ container with appropriate port mapping, and verify the deployment."
+
+--------------------------------------------------------------------------------
+STEP 1: CLONE REPO & GENERATE THE MAVEN `.JAR` FILE
+--------------------------------------------------------------------------------
+>>> [ATTENTION - RUN THESE COMMANDS IN CMD] >>>
+
+    git clone https://github.com/raekuntaadithya-hub/MavenJavaNew.git
+    cd MavenJavaNew
+    mvn clean package
+
+<<< [VERIFY: CHECK `dir target\` FOR THE GENERATED `.jar` FILE] <<<
+
+
+--------------------------------------------------------------------------------
+STEP 2: CHECK `pom.xml` FOR MAIN CLASS (SO `java -jar` KNOWS WHAT TO RUN)
+--------------------------------------------------------------------------------
+Open `pom.xml` (or check `src/main/java/...`) to note your Main class name (e.g., `com.example.App` or `App`).
+*(If `pom.xml` does not already have `maven-jar-plugin` with `<mainClass>`, you can run the class directly in Dockerfile CMD using `-cp app.jar <YourMainClass>` as shown below—this works 100% of the time without editing `pom.xml`!)*
+
+
+--------------------------------------------------------------------------------
+STEP 3: CREATE `Dockerfile` IN THE `MavenJavaNew` ROOT FOLDER
+--------------------------------------------------------------------------------
+Create a file named `Dockerfile` (no extension) inside `MavenJavaNew`:
+*(Replace `App` in the last line with `your.package.MainClass` if your class is inside a package)*
+
+    FROM eclipse-temurin:21-jdk
+    WORKDIR /app
+    COPY target/*.jar app.jar
+    EXPOSE 8080
+    CMD ["java", "-cp", "app.jar", "App"]
+
+
+--------------------------------------------------------------------------------
+STEP 4: BUILD DOCKER IMAGE & RUN CONTAINER WITH PORT MAPPING
+--------------------------------------------------------------------------------
+>>> [ATTENTION - RUN THESE COMMANDS IN CMD] >>>
+
+    docker build -t maven-java-docker .
+    docker images
+    docker run -d -p 8085:8080 --name java-app-container maven-java-docker
+
+<<< [NOTE: IF IT IS A CONSOLE JAVA APP THAT PRINTS AND EXITS, ALSO RUN WITHOUT `-d`] <<<
+
+>>> [ATTENTION - RUN THIS TO VIEW LIVE CONSOLE OUTPUT OF CONTAINER] >>>
+
+    docker logs java-app-container
+
+<<< [OR RUN INTERACTIVELY: `docker run --rm -p 8085:8080 maven-java-docker`] <<<
+
+
+--------------------------------------------------------------------------------
+STEP 5: VERIFY DEPLOYMENT
+--------------------------------------------------------------------------------
+>>> [ATTENTION - RUN THESE VERIFICATION COMMANDS IN CMD] >>>
+
+    docker ps -a
+    docker logs java-app-container
+
+<<< [IF YOUR JAVA APP STARTS AN HTTP SERVER ON 8080, OPEN: http://localhost:8085/] <<<
+
+
+--------------------------------------------------------------------------------
+WHAT TO SHOW THE FACULTY FOR EVALUATION
+--------------------------------------------------------------------------------
+1. `Dockerfile`:
+   - Show the `Dockerfile` using `eclipse-temurin:21-jdk`, copying `target/*.jar`, exposing port `8080`, and running the Java application.
+2. `docker build` & `docker images`:
+   - Show `maven-java-docker` successfully built in CMD.
+3. `docker run` with Port Mapping (`-p 8085:8080`) & `docker ps -a`:
+   - Show the container created with `0.0.0.0:8085->8080/tcp` port mapping.
+4. Application Output (`docker logs java-app-container` or Browser):
+   - Show the Java program's output printed from inside the Docker container!

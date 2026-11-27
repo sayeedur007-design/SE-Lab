@@ -1,0 +1,77 @@
+====================================================================
+SET 6 - Q2(b): MAVEN WEB APPLICATION DOCKER DEPLOYMENT GUIDE
+====================================================================
+
+1. GIT REPOSITORY LINK
+--------------------------------------------------------------------
+https://github.com/raekuntaadithya-hub/maven_web.git
+
+
+2. UPDATED docker-compose.yml
+--------------------------------------------------------------------
+Save this inside: C:\Users\91950\OneDrive\Desktop\boutique-compose\docker-compose.yml
+
+services:
+  mysql-db:
+    image: mysql:8.0
+    container_name: maven-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: mavendb
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - maven-net
+
+  tomcat-web:
+    image: tomcat:9.0
+    container_name: maven-tomcat
+    restart: always
+    volumes:
+      - ./maven_web/target/maven_web.war:/usr/local/tomcat/webapps/ROOT.war
+    ports:
+      - "8081:8080"
+    depends_on:
+      - mysql-db
+    networks:
+      - maven-net
+
+volumes:
+  mysql_data:
+
+networks:
+  maven-net:
+    driver: bridge
+
+
+3. STEP-BY-STEP COMMANDS
+--------------------------------------------------------------------
+# Step 1: Open project directory (Make sure Docker Desktop is running)
+cd C:\Users\91950\OneDrive\Desktop\boutique-compose
+
+# Step 2: Clone the Maven repository (skip if already cloned)
+git clone https://github.com/raekuntaadithya-hub/maven_web.git
+
+# Step 3: Build the Maven .war artifact
+cd maven_web
+mvn clean package
+cd ..
+
+# (Optional) Verify the .war file exists in target\
+dir maven_web\target\*.war
+
+# Step 4: Stop any old conflicting MySQL container on port 3306 (if needed)
+docker stop boutique-mysql
+
+# Step 5: Start the Docker Compose containers
+docker compose up -d
+
+# Step 6: Verify running containers
+docker ps
+
+# Step 7: Open in Browser
+# Maven Web App : http://localhost:8081/
+# Jenkins       : http://localhost:8080/

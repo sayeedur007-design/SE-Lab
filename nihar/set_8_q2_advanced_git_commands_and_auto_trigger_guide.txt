@@ -1,0 +1,108 @@
+================================================================================
+SET 8 - Q2: ECLIPSE MAVEN PROJECT `lab external` + ADVANCED GIT + AUTO TRIGGER
+================================================================================
+
+QUESTION:
+"Create a Maven java project named lab external in eclipse and work on git
+ commands: diff, log, rebase, stash, revert, fetch, and reset.
+ Create the free style job above project with automatic build triggers."
+
+--------------------------------------------------------------------------------
+PART A: CREATE MAVEN JAVA PROJECT IN ECLIPSE & INITIALIZE GIT
+--------------------------------------------------------------------------------
+1. In Eclipse: [File] -> [New] -> [Other...] -> [Maven] -> [Maven Project] -> [Next >].
+2. Check [x] Create a simple project (skip archetype selection) -> [Next >].
+3. Group Id: `com.lab` | Artifact Id: `lab-external` (or `lab_external`) -> [Finish].
+4. Right-click the project -> [Show In] -> [Terminal] (or open CMD inside the project folder).
+5. Create a new empty repository on your GitHub named `lab-external` and link it:
+
+>>> [ATTENTION - RUN INITIAL GIT SETUP IN CMD] >>>
+
+    git init
+    git branch -M main
+    git add .
+    git commit -m "Initial commit: lab external maven project"
+    git remote add origin https://github.com/<your-username>/lab-external.git
+    git push -u origin main
+
+<<< [VERIFY: PROJECT FILES APPEAR ON YOUR GITHUB REPO] <<<
+
+
+--------------------------------------------------------------------------------
+PART B: DEMONSTRATE ALL 7 REQUIRED GIT COMMANDS IN CMD
+--------------------------------------------------------------------------------
+>>> [ATTENTION - RUN THESE COMMANDS ONE BY ONE TO SHOW OUTPUT TO FACULTY] >>>
+
+# 1. git diff (Shows line-by-line unstaged changes)
+echo "// line 1" >> src/main/java/App.java
+git diff
+
+# 2. git stash (Temporarily saves uncommitted changes & cleans working directory)
+git stash
+git status
+git stash pop
+
+# 3. git log (Shows commit history)
+git add .
+git commit -m "Add line 1 to App.java"
+git log --oneline
+
+# 4. git revert (Safely undoes a commit by creating a new reverse commit)
+git revert HEAD --no-edit
+git log --oneline
+
+# 5. git reset (Moves HEAD back; --soft keeps changes staged)
+echo "// line 2" >> src/main/java/App.java
+git add .
+git commit -m "Temporary commit for reset"
+git reset --soft HEAD~1
+git status
+git commit -m "Re-committed line 2"
+
+# 6. git fetch (Downloads remote metadata/commits without merging)
+git fetch origin
+
+# 7. git rebase (Replays feature branch commits linearly on top of main)
+git checkout -b feature-branch
+echo "// feature code" >> src/main/java/Feature.java
+git add .
+git commit -m "Add Feature.java"
+git checkout main
+echo "// main update" >> README.md
+git add .
+git commit -m "Update README on main"
+git checkout feature-branch
+git rebase main
+git checkout main
+git merge feature-branch
+git push -u origin main
+
+<<< [ALL 7 COMMANDS: diff, log, rebase, stash, revert, fetch, reset DEMONSTRATED!] <<<
+
+
+--------------------------------------------------------------------------------
+PART C: JENKINS FREESTYLE JOB WITH AUTOMATIC BUILD TRIGGERS
+--------------------------------------------------------------------------------
+1. Open `http://localhost:8080/` -> [+ New Item] -> Name: `lab-external-job` -> [Freestyle project] -> [OK].
+2. [Source Code Management] -> (o) Git -> URL: `https://github.com/<your-username>/lab-external.git`.
+3. [Triggers] -> Check [x] Poll SCM -> Schedule:
+
+>>> [ATTENTION - ENTER THIS AUTOMATIC TRIGGER SCHEDULE] >>>
+
+    * * * * *
+
+<<< [CHECKS GITHUB EVERY 1 MINUTE AND TRIGGERS BUILD AUTOMATICALLY] <<<
+
+4. [Build Steps] -> [Invoke top-level Maven targets] -> Goals: `clean test package`.
+5. Click [Save]. Push one small commit (`git commit --allow-empty -m "Auto trigger test" && git push`) to show Jenkins auto-building!
+
+
+--------------------------------------------------------------------------------
+WHAT TO SHOW THE FACULTY FOR EVALUATION
+--------------------------------------------------------------------------------
+1. Eclipse Project Explorer:
+   - Show the created `lab-external` Maven Java project.
+2. CMD Terminal History:
+   - Scroll through and show execution outputs of `git diff`, `git log`, `git stash`, `git revert`, `git reset`, `git fetch`, and `git rebase`.
+3. Jenkins Job Configuration & Build History:
+   - Show `[x] Poll SCM` (`* * * * *`), `Started by an SCM change` in Console Output, and `BUILD SUCCESS`.

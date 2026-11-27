@@ -1,0 +1,164 @@
+================================================================================
+JENKINS: BUILD & PACKAGE MAVEN JAVA PROJECT FROM GITHUB
+Repository: https://github.com/raekuntaadithya-hub/MavenJavaNew.git
+================================================================================
+
+QUESTION COVERED:
+"Configure Jenkins to build, test, and package a Maven Java application from
+ GitHub. Verify the build using Console Output and generated artifacts."
+
+--------------------------------------------------------------------------------
+STEP 1: OPEN JENKINS IN YOUR BROWSER
+--------------------------------------------------------------------------------
+1. Open Google Chrome / Microsoft Edge.
+2. Go to:
+   http://localhost:8080/
+3. Log in with your Jenkins username and password.
+
+
+--------------------------------------------------------------------------------
+STEP 2: VERIFY MAVEN & GIT TOOL CONFIGURATION (ONLY IF FIRST TIME)
+--------------------------------------------------------------------------------
+1. On the LEFT menu of Jenkins Dashboard:
+   Click [Manage Jenkins].
+2. Scroll down and click [Tools] (under System Configuration).
+3. Check two sections:
+   - Git installations: Verify "Default" -> Path to Git executable is `git` (or `git.exe`).
+   - Maven installations: Verify a Maven installation is listed (e.g., `MAVEN_HOME` or `Install automatically` checked).
+4. Click [Save] (bottom-left) and return to [Dashboard] (top-left).
+
+
+--------------------------------------------------------------------------------
+STEP 3: CREATE A NEW JENKINS JOB
+--------------------------------------------------------------------------------
+1. On the LEFT menu of Jenkins Dashboard:
+   Click [+ New Item] (top-left).
+2. In the "Enter an item name" box:
+   Type: maven-java-build
+3. Select project type:
+   Click [Freestyle project] (first option in the list).
+   *(Note: Freestyle project works on every Jenkins installation without needing extra plugins.)*
+4. Click [OK] (bottom-left).
+
+
+--------------------------------------------------------------------------------
+STEP 4: CONFIGURE SOURCE CODE MANAGEMENT (GITHUB REPO)
+--------------------------------------------------------------------------------
+1. In the Job Configuration page, scroll down to [Source Code Management].
+2. Select the radio button: (o) Git.
+3. In the "Repository URL" text box, paste:
+   https://github.com/raekuntaadithya-hub/MavenJavaNew.git
+   *(Since it is a public repository, leave Credentials as `- none -`.)*
+4. Under "Branches to build":
+   - In "Branch Specifier (blank for 'any')", change `*/master` to:
+     */main
+   *(Tip: If unsure whether the repo uses `main` or `master`, leave the box completely blank so Jenkins builds any branch!)*
+
+
+--------------------------------------------------------------------------------
+STEP 5: CONFIGURE BUILD STEP & GENERATED ARTIFACTS
+--------------------------------------------------------------------------------
+1. Scroll down to [Build Steps]:
+   - Click [Add build step] dropdown -> Select [Invoke top-level Maven targets].
+   - Maven Version: Select your configured Maven (e.g., `MAVEN_HOME` or `(Default)`).
+   - Goals: Type:
+     clean package
+
+2. Scroll down to [Post-build Actions] (IMPORTANT FOR SHOWING GENERATED ARTIFACTS):
+   - Click [Add post-build action] dropdown -> Select [Archive the artifacts].
+   - In "Files to archive", type:
+     target/*.jar
+
+3. Click [Save] (blue button at the bottom-left).
+
+
+--------------------------------------------------------------------------------
+STEP 6: RUN THE BUILD & VERIFY CONSOLE OUTPUT + ARTIFACTS
+--------------------------------------------------------------------------------
+1. On the `maven-java-build` project page, click [Build Now] on the LEFT menu.
+2. Wait 5-15 seconds. Under [Build History] (bottom-left), `#1` will turn into a GREEN checkmark.
+
+3. VERIFY CONSOLE OUTPUT:
+   - Click [#1] under Build History -> Click [Console Output] on the LEFT menu.
+   - Scroll to the bottom and show:
+     * `Tests run: ..., Failures: 0, Errors: 0`
+     * `Building jar: ... \target\MavenJavaNew-1.0-SNAPSHOT.jar` (or similar `.jar`)
+     * `[INFO] BUILD SUCCESS`
+     * `Finished: SUCCESS`
+
+4. VERIFY GENERATED ARTIFACTS:
+   - Click `maven-java-build` in the top breadcrumb bar to return to the job page.
+   - Right in the center of the screen under **Last Successful Artifacts**, you will see your generated `.jar` file!
+   - You can also click [Workspace] on the LEFT menu -> click [target] to show the `.jar` file inside the workspace folder.
+
+
+--------------------------------------------------------------------------------
+WHAT TO SHOW THE FACULTY FOR EVALUATION
+--------------------------------------------------------------------------------
+1. Job Configuration ([Configure]):
+   - GitHub URL (`https://github.com/raekuntaadithya-hub/MavenJavaNew.git`), Goals (`clean package`), and Post-build Action (`target/*.jar`).
+2. Build History (Left Panel):
+   - Green checkmark on `#1`.
+3. Console Output:
+   - Scroll to bottom showing JUnit test execution, `BUILD SUCCESS`, and `Finished: SUCCESS`.
+4. Generated Artifacts:
+   - Show the `.jar` file under **Last Successful Artifacts** on the main job screen (and inside `Workspace -> target`).
+
+
+================================================================================
+BONUS SECTION: IF QUESTION ASKS FOR "JENKINS PIPELINE" OR RUNNING THE JAR
+================================================================================
+
+--------------------------------------------------------------------------------
+BONUS A: IF QUESTION ASKS FOR "JENKINS PIPELINE" (DECLARATIVE PIPELINE)
+--------------------------------------------------------------------------------
+1. Click [+ New Item] -> Name: `maven-java-pipeline` -> Select [Pipeline] -> Click [OK].
+2. Scroll down to the [Pipeline] section at the bottom.
+3. Definition: Keep as `Pipeline script`.
+4. Paste this script (replace `'MAVEN_HOME'` with your Maven tool name from Manage Jenkins -> Tools, or remove the `tools` block if `mvn` is in Windows System PATH):
+
+pipeline {
+    agent any
+    tools {
+        maven 'MAVEN_HOME'
+    }
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/raekuntaadithya-hub/MavenJavaNew.git'
+            }
+        }
+        stage('Build & Test') {
+            steps {
+                bat 'mvn clean package'
+            }
+        }
+        stage('Archive Artifact') {
+            steps {
+                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+            }
+        }
+    }
+}
+
+5. Click [Save] -> Click [Build Now].
+6. Show the faculty the green Stage View boxes (`Checkout` -> `Build & Test` -> `Archive Artifact`), Console Output, and generated `.jar` artifact!
+
+
+--------------------------------------------------------------------------------
+BONUS B: IF QUESTION ALSO ASKS TO EXECUTE/RUN THE JAVA CLASS IN JENKINS
+--------------------------------------------------------------------------------
+1. In your `maven-java-build` job -> Click [Configure] -> Scroll to [Build Steps].
+2. Click [Add build step] dropdown -> Select [Execute Windows batch command].
+3. In the "Command" box, type (replace `com.example.App` with your actual package.MainClass):
+   mvn exec:java -Dexec.mainClass="com.example.App"
+4. Click [Save] -> Click [Build Now] -> Open [Console Output] to show the Java program's printed output directly inside Jenkins!
+
+
+--------------------------------------------------------------------------------
+QUICK TROUBLESHOOTING IN EXAM HALL
+--------------------------------------------------------------------------------
+- Error: `Couldn't find any revision to build`
+  Fix: Configure -> Branch Specifier -> leave blank -> Save -> Build Now.
+- Error: `'mvn' is not recognized`
+  Fix: Manage Jenkins -> Tools -> Add Maven -> check [x] Install automatically -> Save -> select it in Build Step.

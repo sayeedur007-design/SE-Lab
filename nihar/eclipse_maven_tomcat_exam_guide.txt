@@ -1,0 +1,143 @@
+================================================================================
+ECLIPSE IDE + APACHE TOMCAT 9: COMPLETE EXAM CHEAT SHEET
+Repository: https://github.com/raekuntaadithya-hub/maven_web.git
+================================================================================
+
+--------------------------------------------------------------------------------
+STEP 1: CLONE REPOSITORY IN COMMAND PROMPT (CMD)
+--------------------------------------------------------------------------------
+1. Open Command Prompt (cmd) on your Windows PC.
+2. Go to the folder where you want to save the project (for example, Desktop):
+   cd Desktop
+3. Run this exact command:
+   git clone https://github.com/raekuntaadithya-hub/maven_web.git
+4. Verify a folder named "maven_web" is created on your Desktop.
+
+
+--------------------------------------------------------------------------------
+STEP 2: IMPORT THE MAVEN PROJECT INTO ECLIPSE
+--------------------------------------------------------------------------------
+1. Look at the Top Menu Bar (very top-left of Eclipse):
+   Click [File] -> Click [Import...].
+2. In the "Import" pop-up window:
+   - Expand the [Maven] folder (click the small arrow next to Maven).
+   - Click [Existing Maven Projects].
+   - Click [Next >] (button at bottom-right of the pop-up).
+3. In the "Maven Projects" screen:
+   - Look at the top line labeled "Root Directory:".
+   - Click the [Browse...] button on the far right of that line.
+   - Go to Desktop, click the "maven_web" folder -> Click [Select Folder].
+   - Look at the middle box labeled "Projects:": Verify "/pom.xml" has a checkmark next to it.
+   - Click [Finish] (button at bottom-right).
+4. Wait 5-10 seconds for the bottom-right progress bar ("Building workspace") to reach 100%.
+
+
+--------------------------------------------------------------------------------
+STEP 3: FIX RED ERRORS / UPDATE MAVEN PROJECT
+--------------------------------------------------------------------------------
+1. Look at the [Project Explorer] panel on the LEFT side of Eclipse.
+2. Right-click on the project folder name [maven_web].
+3. In the right-click menu, hover over [Maven] (near the bottom) -> Click [Update Project...].
+4. In the "Update Maven Project" pop-up:
+   - Check the box: [x] Force Update of Snapshots/Releases (bottom-left area).
+   - Click [OK] (bottom-right).
+
+
+--------------------------------------------------------------------------------
+STEP 4: OPEN "SERVERS" TAB IN ECLIPSE (IF NOT VISIBLE AT THE BOTTOM)
+--------------------------------------------------------------------------------
+1. Look at the Top Menu Bar:
+   Click [Window] -> Hover over [Show View] -> Click [Servers].
+2. (If "Servers" is not in that short list):
+   - Click [Other...] at the bottom of the Show View menu.
+   - In the "Show View" pop-up, type "Servers" in the top filter box.
+   - Click [Servers] -> Click [Open] (bottom-right).
+3. A new tab named [Servers] will now appear in the BOTTOM panel of Eclipse.
+
+
+--------------------------------------------------------------------------------
+STEP 5: CONFIGURE APACHE TOMCAT 9 SERVER IN ECLIPSE
+--------------------------------------------------------------------------------
+1. Click the [Servers] tab in the BOTTOM panel of Eclipse.
+2. Inside the empty white area of the Servers tab:
+   Click the blue link: "No servers are available. Click this link to create a new server..."
+   (Alternative: Right-click in the empty white space -> Hover [New] -> Click [Server]).
+3. In the "New Server" pop-up window:
+   - Expand the [Apache] folder (click the arrow next to Apache).
+   - Scroll down and click [Tomcat v9.0 Server].
+   - Click [Next >] (bottom-right).
+4. In the "Tomcat Server" configuration screen:
+   - Look at "Tomcat installation directory:".
+   - Click the [Browse...] button on the right.
+   - Navigate to where Apache Tomcat 9 is extracted on your Windows PC (commonly in C:\Program Files\Apache Software Foundation\Tomcat 9.0 or C:\apache-tomcat-9.0.xx).
+   - Select the main Tomcat folder (the folder that contains "bin", "conf", and "webapps" inside it) -> Click [Select Folder].
+   - Look at "JRE:" dropdown below it: Select your installed JDK (e.g., jdk-17 or jdk-21).
+   - Click [Next >] (bottom-right).
+5. In the "Add and Remove" screen:
+   - In the LEFT box ("Available:"), click [maven_web].
+   - Click the [Add >] button in the middle to move [maven_web] to the RIGHT box ("Configured:").
+   - Click [Finish] (bottom-right).
+
+
+--------------------------------------------------------------------------------
+STEP 6: CHANGE TOMCAT PORT (AVOID CONFLICT WITH JENKINS ON 8080)
+--------------------------------------------------------------------------------
+IMPORTANT: If Jenkins is already running on port 8080, change Tomcat to 8082 so it doesn't fail:
+
+1. In the [Servers] tab at the BOTTOM panel:
+   DOUBLE-CLICK on [Tomcat v9.0 Server at localhost].
+2. A configuration editor page will open in the CENTER screen of Eclipse.
+3. Look on the RIGHT side of that editor page for the box titled [Ports].
+4. Inside the [Ports] table, you will see:
+   - Tomcat admin port : 8005
+   - HTTP/1.1          : 8080
+5. Click directly on the number [8080] next to HTTP/1.1, delete it, and type:
+   8082
+6. Press [Ctrl + S] on your keyboard to save (the little asterisk * next to the tab name will disappear).
+7. Close that Tomcat configuration tab (click the 'x' on its tab at the top of the center editor).
+
+
+--------------------------------------------------------------------------------
+STEP 7: RUN THE MAVEN PROJECT ON TOMCAT
+--------------------------------------------------------------------------------
+1. In the LEFT [Project Explorer] panel, right-click [maven_web].
+2. Hover over [Run As] -> Click [1 Run on Server].
+3. In the "Run On Server" pop-up:
+   - Select the radio button: (o) Choose an existing server.
+   - Click on [Tomcat v9.0 Server at localhost] in the list.
+   - Check the box at the bottom: [x] Always use this server when running this project.
+   - Click [Finish] (bottom-right).
+4. Watch the [Console] tab at the BOTTOM panel:
+   - Wait until you see logs ending with:
+     "INFO: Server startup in [xxxx] ms"
+5. View Output:
+   - Eclipse will automatically open its internal browser tab showing your web app!
+   - Or open Chrome / Edge and go to:
+     http://localhost:8082/maven_web/
+
+
+--------------------------------------------------------------------------------
+WHAT TO SHOW THE FACULTY FOR EVALUATION
+--------------------------------------------------------------------------------
+1. Command Prompt (CMD):
+   - Show the `git clone` command output proving you cloned `maven_web` from GitHub.
+2. Eclipse Project Explorer & `pom.xml` (Left Panel):
+   - Show the imported `maven_web` folder structure (`src/main/webapp/index.jsp` and `pom.xml` with `<packaging>war</packaging>`) without any red error marks.
+3. Servers & Console Tabs (Bottom Panel):
+   - Show `Tomcat v9.0 Server at localhost [Started, Synchronized]` in the [Servers] tab and `INFO: Server startup in [xxxx] ms` in the [Console] tab.
+4. Live Web Output in Browser:
+   - Show the running web page in Chrome/Eclipse Browser at `http://localhost:8082/maven_web/`.
+
+
+--------------------------------------------------------------------------------
+QUICK TROUBLESHOOTING IN EXAM HALL
+--------------------------------------------------------------------------------
+- Problem 1: "Port 8080 required by Tomcat v9.0 Server at localhost is already in use"
+  Fix: Follow STEP 6 above and change HTTP/1.1 port from 8080 to 8082, press Ctrl+S, and run again.
+
+- Problem 2: Server says "Stopped" even after clicking Run
+  Fix: In the bottom [Servers] tab, right-click [Tomcat v9.0 Server at localhost] -> Click [Clean...] -> Click [OK], then right-click it again -> Click [Start].
+
+- Problem 3: 404 Not Found in Browser
+  Fix: Open Chrome and make sure "/maven_web/" is at the end of the URL:
+  http://localhost:8082/maven_web/

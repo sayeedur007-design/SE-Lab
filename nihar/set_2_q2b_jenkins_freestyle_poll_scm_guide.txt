@@ -1,0 +1,80 @@
+================================================================================
+SET 2 - Q2(b): JENKINS FREESTYLE JOB WITH POLL SCM
+Repository Used: https://github.com/anujyog1/carrepo.git
+(Tip: For live Poll SCM commit demo, use YOUR OWN GitHub repo so you can push!)
+================================================================================
+
+QUESTION:
+"Create a Jenkins Freestyle pipeline using Jenkins for the web project with URL
+ https://github.com/anujyog1/carrepo.git . Demonstrate use of POLL SCM."
+
+--------------------------------------------------------------------------------
+STEP 1: CREATE FREESTYLE PROJECT IN JENKINS
+--------------------------------------------------------------------------------
+1. Open `http://localhost:8080/` -> Click [+ New Item] (top-left).
+2. Enter item name: `car-web-pollscm`
+3. Select [Freestyle project] -> Click [OK].
+
+
+--------------------------------------------------------------------------------
+STEP 2: CONFIGURE GITHUB REPOSITORY URL
+--------------------------------------------------------------------------------
+1. Scroll to [Source Code Management] -> Select (o) Git.
+2. Repository URL:
+   https://github.com/anujyog1/carrepo.git
+   *(Note: If you want to push a live change to trigger Poll SCM in front of
+     faculty, fork/push to your own repo `https://github.com/raekuntaadithya-hub/maven_web.git`)*
+3. Branch Specifier: Leave blank (so it builds `main` or `master` automatically).
+
+
+--------------------------------------------------------------------------------
+STEP 3: ENABLE POLL SCM TRIGGER (MAIN REQUIREMENT)
+--------------------------------------------------------------------------------
+1. Scroll down to [Triggers] (or [Build Triggers]).
+2. Check the box: [x] Poll SCM.
+3. In the "Schedule" text box that opens, type 5 stars separated by spaces:
+
+>>> [ATTENTION - TYPE THIS EXACT SCHEDULE IN JENKINS POLL SCM BOX] >>>
+
+    * * * * *
+
+<<< [MEANING: JENKINS CHECKS GITHUB EVERY 1 MINUTE FOR NEW COMMITS] <<<
+
+
+--------------------------------------------------------------------------------
+STEP 4: CONFIGURE MAVEN BUILD & SAVE
+--------------------------------------------------------------------------------
+1. Scroll to [Build Steps] -> Click [Add build step] -> [Invoke top-level Maven targets].
+2. Goals: `clean package`
+3. Scroll to [Post-build Actions] -> [Add post-build action] -> [Archive the artifacts].
+4. Files to archive: `target/*.war`
+5. Click [Save] (bottom-left).
+
+
+--------------------------------------------------------------------------------
+STEP 5: DEMONSTRATE AUTOMATIC POLL SCM TRIGGER TO FACULTY
+--------------------------------------------------------------------------------
+1. Wait 1 minute: Jenkins automatically runs **Build #1** (initial poll).
+2. Now make a small change on GitHub (edit `README.md` or `index.jsp` directly on
+   GitHub website -> click Commit changes) OR push from CMD:
+
+>>> [ATTENTION - OPTIONAL CMD PUSH TO TRIGGER POLL SCM LIVE] >>>
+
+    git add .
+    git commit -m "Trigger Poll SCM build"
+    git push origin main
+
+<<< [WAIT UP TO 60 SECONDS - BUILD #2 WILL START AUTOMATICALLY!] <<<
+
+
+--------------------------------------------------------------------------------
+WHAT TO SHOW THE FACULTY FOR EVALUATION
+--------------------------------------------------------------------------------
+1. Job Configuration ([Configure] -> [Triggers]):
+   - Show `[x] Poll SCM` checked with schedule `* * * * *`.
+2. [Git Polling Log] (Left sidebar of the job page):
+   - Click [Git Polling Log] and show `"Polling has not run yet"` -> `"Changes found"`!
+3. Build History (Left Panel):
+   - Show `#1` and the auto-triggered `#2` (hover over `#2` to show `"Started by an SCM change"`).
+4. Console Output of `#2`:
+   - Show `Started by an SCM change` at the very top and `BUILD SUCCESS` at the bottom.

@@ -1,0 +1,72 @@
+================================================================================
+SET 2 - Q2(c): CREATE DOCKERFILE WITH CUSTOM NAME `carimage<YourRollNo>` & PUSH
+Repository Used: https://github.com/anujyog1/carrepo.git
+(Fallback if repo is private/missing: https://github.com/raekuntaadithya-hub/maven_web.git)
+================================================================================
+
+QUESTION:
+"Create Dockerfile for Maven project with name 'carimage<YourRollNo>' using
+ Dockerfile, build it, and push it to Docker Hub."
+
+--------------------------------------------------------------------------------
+STEP 1: CLONE REPOSITORY & PACKAGE MAVEN PROJECT
+--------------------------------------------------------------------------------
+>>> [ATTENTION - RUN THESE COMMANDS IN CMD] >>>
+
+    git clone https://github.com/anujyog1/carrepo.git
+    cd carrepo
+    mvn clean package
+
+<<< [VERIFY: CHECK `dir target\` TO CONFIRM `.war` OR `.jar` FILE IS BUILT] <<<
+
+
+--------------------------------------------------------------------------------
+STEP 2: CREATE `Dockerfile` INSIDE THE PROJECT FOLDER
+--------------------------------------------------------------------------------
+Create a file named `Dockerfile` (no `.txt` extension!) in the root folder:
+
+    FROM tomcat:9.0-jdk17
+    RUN rm -rf /usr/local/tomcat/webapps/*
+    COPY target/*.war /usr/local/tomcat/webapps/ROOT.war
+    EXPOSE 8080
+    CMD ["catalina.sh", "run"]
+
+
+--------------------------------------------------------------------------------
+STEP 3: BUILD IMAGE AS `carimage<YourRollNo>`, TAG & PUSH TO DOCKER HUB
+--------------------------------------------------------------------------------
+IMPORTANT: Docker image names MUST be all LOWERCASE!
+Example: If your roll number is `23bd1a0501`, use `carimage23bd1a0501`.
+
+>>> [ATTENTION - RUN THESE COMMANDS IN CMD (REPLACE <rollno> & <dockerhub-id>)] >>>
+
+    docker login
+    docker build -t carimage<rollno> .
+    docker images
+    docker tag carimage<rollno> <dockerhub-id>/carimage<rollno>:latest
+    docker push <dockerhub-id>/carimage<rollno>:latest
+
+<<< [VERIFY: CHECK DOCKER HUB DASHBOARD ON BROWSER] <<<
+
+
+--------------------------------------------------------------------------------
+(OPTIONAL) RUN CONTAINER LOCALLY IF FACULTY ASKS TO SEE OUTPUT
+--------------------------------------------------------------------------------
+>>> [ATTENTION - RUN THIS COMMAND IN CMD] >>>
+
+    docker run -d -p 8081:8080 --name car-container carimage<rollno>
+
+<<< [OPEN BROWSER AT: http://localhost:8081/] <<<
+
+
+--------------------------------------------------------------------------------
+WHAT TO SHOW THE FACULTY FOR EVALUATION
+--------------------------------------------------------------------------------
+1. `Dockerfile` Contents:
+   - Show the `Dockerfile` inside the project folder (`type Dockerfile`).
+2. `docker images` Output in CMD:
+   - Point directly to the image named `carimage<YourRollNo>` in the list.
+3. `docker push` Output in CMD:
+   - Show the push digest completing without errors.
+4. Docker Hub Website:
+   - Show the repository `<dockerhub-id>/carimage<YourRollNo>` live on Docker Hub.

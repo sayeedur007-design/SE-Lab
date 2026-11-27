@@ -1,0 +1,122 @@
+================================================================================
+SET 12 - Q1(c): AWS EC2 + JAVA + TOMCAT + MAVEN WEB DEPLOYMENT GUIDE
+Repository Used: https://github.com/raekuntaadithya-hub/maven_web.git
+================================================================================
+
+--------------------------------------------------------------------------------
+STEP 1: LAUNCH AN EC2 INSTANCE ON AWS CONSOLE
+--------------------------------------------------------------------------------
+1. Log in to AWS Management Console -> Search and open [EC2].
+2. Click the orange [Launch instance] button.
+3. Configure Instance Details:
+   - Name: `maven-tomcat-server`
+   - Application and OS Images (AMI): Select [Ubuntu] (Ubuntu Server 22.04 or 24.04 LTS - Free tier eligible).
+   - Instance type: `t2.micro` (or `t3.micro` - Free tier eligible).
+   - Key pair (login):
+     * Click [Create new key pair] -> Name: `lab-key` -> Key pair type: `RSA` -> File format: `.pem` -> Click [Create key pair] (downloads `lab-key.pem` to your Downloads folder).
+4. Configure Network / Security Group (CRITICAL FOR PORT 8080 ACCESS):
+   - Under [Network settings], click [Edit] (or check the default boxes) and make sure:
+     * Auto-assign public IP: `Enable`
+     * Firewall (security groups): Select [Create security group]
+     * Rule 1: Type = `SSH`, Port = `22`, Source type = `Anywhere` (`0.0.0.0/0`)
+     * Click [Add security group rule]:
+       Rule 2: Type = `Custom TCP`, Port range = `8080`, Source type = `Anywhere` (`0.0.0.0/0`)
+5. Click [Launch instance] (bottom-right) -> Click [View all instances].
+6. Wait until **Instance state** shows `Running` (green) and copy your **Public IPv4 address** (e.g., `13.233.xx.xx`).
+
+
+--------------------------------------------------------------------------------
+STEP 2: CONNECT TO YOUR EC2 INSTANCE VIA SSH (OR EC2 INSTANCE CONNECT)
+--------------------------------------------------------------------------------
+Option A (Fastest in Browser - No Key Command Needed):
+1. Select the checkbox next to `maven-tomcat-server` in EC2 Instances list.
+2. Click [Connect] at the top -> Go to [EC2 Instance Connect] tab -> Click [Connect].
+   (A Linux terminal opens directly in your browser!)
+
+Option B (From Windows Command Prompt / PowerShell):
+1. Open CMD and go to Downloads where `lab-key.pem` was saved:
+   cd Downloads
+2. Connect using your EC2 Public IP:
+   ssh -i lab-key.pem ubuntu@<YOUR-EC2-PUBLIC-IP>
+   (Type `yes` when asked "Are you sure you want to continue connecting?")
+
+
+--------------------------------------------------------------------------------
+STEP 3: INSTALL JAVA, GIT, MAVEN, AND APACHE TOMCAT 9 ON EC2
+--------------------------------------------------------------------------------
+Run these commands one by one inside the EC2 terminal:
+
+1. Update Ubuntu packages and install Java (JDK 17), Git, and Maven:
+   sudo apt update
+   sudo apt install -y openjdk-17-jdk git maven
+
+2. Verify Java and Maven installations:
+   java -version
+   mvn -version
+
+3. Download and extract Apache Tomcat 9 into `/opt/tomcat`:
+   cd /opt
+   sudo wget https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.102/bin/apache-tomcat-9.0.102.tar.gz
+   sudo tar -xvzf apache-tomcat-9.0.102.tar.gz
+   sudo mv apache-tomcat-9.0.102 tomcat
+   sudo chmod +x /opt/tomcat/bin/*.sh
+
+*(Note: If the `wget` link returns 404 due to a newer minor release, install Tomcat directly via apt instead using:
+  `sudo apt install -y tomcat9` -> Tomcat webapps folder will be `/var/lib/tomcat9/webapps/`)*
+
+
+--------------------------------------------------------------------------------
+STEP 4: CLONE YOUR GITHUB REPO, BUILD .WAR, AND DEPLOY TO TOMCAT
+--------------------------------------------------------------------------------
+1. Go to home directory and clone your existing `maven_web` repository:
+   cd ~
+   git clone https://github.com/raekuntaadithya-hub/maven_web.git
+   cd maven_web
+
+2. Package the Maven web application into a `.war` file:
+   mvn clean package
+
+3. Verify the `.war` file was created inside `target/`:
+   ls target/
+
+4. Copy the generated `.war` file into Tomcat's `webapps` folder:
+   sudo cp target/maven_web.war /opt/tomcat/webapps/
+   *(Or if you want it on the root URL without `/maven_web`, copy it as `ROOT.war`:
+     `sudo cp target/maven_web.war /opt/tomcat/webapps/ROOT.war`)*
+
+5. Start the Tomcat server:
+   sudo /opt/tomcat/bin/startup.sh
+
+
+--------------------------------------------------------------------------------
+STEP 5: ACCESS THE APPLICATION THROUGH EC2 PUBLIC IP
+--------------------------------------------------------------------------------
+1. Open Chrome / Edge on your laptop.
+2. Enter your EC2 Public IPv4 address with port `8080`:
+   - If copied as `maven_web.war`:
+     http://<YOUR-EC2-PUBLIC-IP>:8080/maven_web/
+   - If copied as `ROOT.war`:
+     http://<YOUR-EC2-PUBLIC-IP>:8080/
+
+
+--------------------------------------------------------------------------------
+WHAT TO SHOW THE FACULTY FOR EVALUATION
+--------------------------------------------------------------------------------
+1. AWS EC2 Console:
+   - Show the running `maven-tomcat-server` instance, its **Public IPv4 address**, and the **Security Group Inbound Rules** allowing Port `22` and Port `8080`.
+2. EC2 SSH Terminal:
+   - Show `java -version`, `mvn clean package` (`BUILD SUCCESS`), and the `.war` file copied inside `/opt/tomcat/webapps/`.
+3. Live Browser Output:
+   - Open `http://<YOUR-EC2-PUBLIC-IP>:8080/maven_web/` in your browser showing the live deployed web application accessible over the public internet!
+
+
+--------------------------------------------------------------------------------
+QUICK TROUBLESHOOTING IN EXAM HALL
+--------------------------------------------------------------------------------
+- Problem: Browser keeps loading and times out on `http://<PUBLIC-IP>:8080`
+  Fix: Check EC2 -> Instances -> Security tab -> Security groups -> Edit inbound rules -> Add `Custom TCP`, Port `8080`, Source `0.0.0.0/0` -> Save rules.
+
+- Problem: `wget` Tomcat URL gives 404 Not Found
+  Fix: Run `sudo apt install -y tomcat9` instead, then copy the war file using:
+  `sudo cp ~/maven_web/target/maven_web.war /var/lib/tomcat9/webapps/`
+  and restart with `sudo systemctl restart tomcat9`.

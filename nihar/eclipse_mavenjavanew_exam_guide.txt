@@ -1,0 +1,59 @@
+================================================================================
+ECLIPSE IDE + JAVA PROJECT: SIMPLE EXAM GUIDE
+Repository: https://github.com/raekuntaadithya-hub/MavenJavaNew.git
+================================================================================
+
+--------------------------------------------------------------------------------
+STEP 1: CLONE REPOSITORY IN COMMAND PROMPT (CMD)
+--------------------------------------------------------------------------------
+1. Open Command Prompt (cmd) on your Windows PC.
+2. Go to Desktop:
+   cd Desktop
+3. Run this exact command:
+   git clone https://github.com/raekuntaadithya-hub/MavenJavaNew.git
+4. Verify a folder named "MavenJavaNew" appears on your Desktop.
+
+
+--------------------------------------------------------------------------------
+STEP 2: IMPORT INTO ECLIPSE
+--------------------------------------------------------------------------------
+1. Top Menu Bar (top-left of Eclipse):
+   Click [File] -> Click [Import...].
+2. In the "Import" pop-up window:
+   - Expand [Maven] -> Click [Existing Maven Projects] -> Click [Next >].
+3. In the "Maven Projects" screen:
+   - Click [Browse...] next to "Root Directory:".
+   - Open Desktop -> Click "MavenJavaNew" -> Click [Select Folder].
+   - Make sure "/pom.xml" is checked in the middle box -> Click [Finish].
+4. Wait 5 seconds until the bottom-right progress bar finishes loading.
+
+
+--------------------------------------------------------------------------------
+STEP 3: RUN THE JAVA PROJECT
+--------------------------------------------------------------------------------
+1. In the LEFT [Project Explorer] panel, click the small arrow next to [MavenJavaNew].
+2. Expand [src/main/java] -> Expand the package folder inside it.
+3. Right-click on the main Java file (e.g., `App.java`).
+4. Hover over [Run As] -> Click [1 Java Application].
+5. Look at the [Console] tab at the BOTTOM of Eclipse to see your output!
+
+
+--------------------------------------------------------------------------------
+ONLY IF YOU SEE A RED CROSS ON THE PROJECT:
+--------------------------------------------------------------------------------
+1. Right-click [MavenJavaNew] in the LEFT panel.
+2. Hover over [Maven] -> Click [Update Project...] -> Click [OK].
+3. Repeat STEP 3 (Right-click `App.java` -> Run As -> Java Application).
+
+
+--------------------------------------------------------------------------------
+WHAT TO SHOW THE FACULTY FOR EVALUATION
+--------------------------------------------------------------------------------
+1. Command Prompt (CMD):
+   - Show the `git clone` command output proving you cloned the repository from GitHub.
+2. Eclipse Project Explorer (Left Panel):
+   - Show the imported `MavenJavaNew` project folder structure (`src/main/java`, `src/test/java`, and `pom.xml`) without any red error marks.
+3. `pom.xml` File (Double-click to open):
+   - Briefly show the Maven configuration (`groupId`, `artifactId`, `dependencies`) if asked.
+4. Console Output (Bottom Panel):
+   - Run `App.java` in front of them (`Right-click -> Run As -> Java Application`) and point to the printed output in the [Console] tab.
